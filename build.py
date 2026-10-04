@@ -2,6 +2,8 @@
 usage: python3 build.py            -> index.html, en/, zh-hant/, zh-hans/, ko/, id/, vi/ index.html (GitHub Pages)
        python3 build.py --dev      -> also dev/www/jizura.js + dev/www/test.html for the test tools"""
 import glob, os, sys
+from html import escape
+from app import config
 from app.english import localize_body, localize_js
 from app import i18n
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -15,14 +17,17 @@ def build(lang):
     english = lang == 'en'
     local = lang in i18n.MODULES
     m = i18n.module(lang) if local else None
-    title = 'JIZURA — Lyric Motion Video Maker' if english else m.TITLE if local else 'JIZURA 字面'
-    description = ('Turn lyrics into animated lyric videos in your browser and export MP4.' if english else m.DESCRIPTION if local else '歌詞を入れると文字PV（リリックモーション）を自動で組み立てて MP4 に書き出すブラウザアプリ')
+    title = escape(config.APP_NAME + (' - Lyric Motion Video Maker' if english else ''))
+    description = escape(config.DESCRIPTION_EN if english else m.DESCRIPTION if local else config.DESCRIPTION_JA, quote=True)
     folder = dict((c, f) for c, f, _, _ in i18n.EDITIONS)[lang]
     canonical = i18n.BASE + (folder + '/' if folder else '')
     language_nav = i18n.nav(lang)
     body = read('app/body.html').replace('@VERSION@', VERSION).replace('    <div class="acts">', '    ' + language_nav + '\n    <div class="acts">', 1)
     if english: body = localize_body(body)
     elif local: body = i18n.localize_body(lang, body)
+    # 翻訳後にブランド値を入れるため、各言語の辞書を変更する必要はない。
+    for key, value in config.BRAND_TOKENS.items():
+        body = body.replace(key, escape(value, quote=True))
     if english: script = '\n'.join(localize_js(read(f), f) for f in sources)
     elif local: script = '\n'.join(i18n.localize_js(lang, read(f), f) for f in sources)
     else: script = js
@@ -48,6 +53,7 @@ def build(lang):
 <meta property="og:description" content="{description}">
 <meta property="og:url" content="{canonical}">
 <meta name="twitter:card" content="summary">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 rx=%2212%22 fill=%22%230b0d12%22/%3E%3Cpath d=%22M44 18H26L20 24V30L38 34V40L32 46H18%22 fill=%22none%22 stroke=%22%2300d9ff%22 stroke-width=%226%22/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <style>
