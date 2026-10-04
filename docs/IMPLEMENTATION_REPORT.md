@@ -2,16 +2,15 @@
 
 ## 公開URL
 
-公開予定: https://takashige2026.github.io/synthia-lyrics-studio/
-ローカル候補: http://127.0.0.1:8089/
-公開は未実施。外部アップロードの承認を得てから実行します。
+公開URL: https://takashige2026.github.io/synthia-lyrics-studio/
+2026-10-04に利用者の承認を得てGitHub Pagesで公開しました。
 
 ## GitHub Repository
 
-作成予定: https://github.com/takashige2026/synthia-lyrics-studio
+URL: https://github.com/takashige2026/synthia-lyrics-studio
 GitHubコネクターの認証ユーザーが takashige2026 であることを確認済み。
-同名リポジトリの取得は404でした。まだ作成・pushしていません。
-GitHub CLIは未認証です。公開方法は承認後に利用可能なGitHub連携またはブラウザ・CLIで確定します。
+Publicリポジトリを作成し、利用者自身による通常のブラウザ認証後にmainへpushしました。
+GitHub Actionsのビルド・配信は成功しています。[公開結果](PUBLICATION.md)を参照してください。
 
 ## ベース
 
@@ -39,7 +38,7 @@ VERSIONは原版のまま、CUSTOM_VERSIONで独自版を管理します。
 ## 主な変更
 
 - 名称と公開URL・説明文を設定ファイルへ集約
-- canonical、Open Graph、hreflang、sitemapを公開予定先へ設定
+- canonical、Open Graph、hreflang、sitemapを公開先へ設定
 - 黒・チャコールにシアンを合わせた操作画面
 - 音源→歌詞/LRC→タイミング調整の入力順に変更
 - GitHub Pagesの自動ビルド、公開用ファイルの限定、検査ツール
@@ -59,7 +58,9 @@ VERSIONは原版のまま、CUSTOM_VERSIONで独自版を管理します。
 - [x] プロジェクト保存・読み込み・原版との相互読み込み
 - [x] 7言語起動
 - [x] 390/430/768/1440/1920px
-- [ ] GitHub Pages実配信と公開テスト
+- [x] GitHub ActionsのビルドとGitHub Pages実配信
+- [x] 公開版のChrome・Edgeで各22検査
+- [x] 公開7言語のHTTP 200、メタデータとローカル生成HTMLの一致
 
 詳細は [QA.md](QA.md) を参照してください。
 
@@ -79,14 +80,14 @@ VERSIONは原版のまま、CUSTOM_VERSIONで独自版を管理します。
 
 ## 問題・注意点
 
-- 公開承認待ちのため、指示書のVer.1完成条件はまだ全項目達成していません。
 - MP4は短い720p素材で確認。長時間曲や4K、スマホ実機は未確認です。
+- MP4の実視聴と聴感による最終確認は未実施です。構造と全体のデコードは検査済みです。
 - 保存JSONに曲のバイナリは含みません。別端末では曲も読み込みます。
 - AE版は原版のまま保持し、AE内での動作は未確認です。
 - 上流のGoogle Search Console確認HTMLは原本保持のためソース側に残していますが、Pages公開用ファイルには含めません。
 
 ## 次におすすめする作業
 
-1. 公開範囲と外部アップロードを承認し、リポジトリとPagesを公開
-2. 公開URLでChrome/Edgeの同じ操作を再検証
-3. 利用者の実曲とスマホ実機で最終確認
+1. 利用者の実曲と歌詞で制作し、MP4を視聴して確認
+2. スマホ実機と長い曲で制作・保存を確認
+3. 専用プリセットと必要な出力形式を追加

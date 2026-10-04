@@ -2,9 +2,9 @@
 
 JIZURAをベースにカスタマイズした、個人向けリリックモーション・MV制作Webアプリです。
 
-公開予定URL: https://takashige2026.github.io/synthia-lyrics-studio/
-GitHub予定先: https://github.com/takashige2026/synthia-lyrics-studio
-公開前のローカル候補です。公開状態と動作確認は docs/QA.md を参照してください。
+公開URL: https://takashige2026.github.io/synthia-lyrics-studio/
+GitHub: https://github.com/takashige2026/synthia-lyrics-studio
+2026-10-04にGitHub Pagesで公開し、公開版のChrome・Edgeで主要機能を確認しました。[公開結果](docs/PUBLICATION.md)と[動作確認](docs/QA.md)を参照してください。
 
 Base: JIZURA v0.10.1 / Custom: SYNTHIA Lyrics Studio v0.1.0
 
@@ -16,7 +16,7 @@ Licensed under the MIT License. The original notices are preserved in LICENSE an
 
 ## ローカル起動
 
-Python 3.10以降（追加パッケージ不要）と、ChromeまたはEdgeを利用します。
+Python 3.10以降（追加パッケージ不要）と、ChromeまたはEdgeを利用します。リリース検査にはNode.jsも必要です（PATHに設定）。
 
 ```powershell
 python build.py
@@ -42,7 +42,7 @@ Google Fontsは元の仕組みで必要な書体だけ取得します。
 ## 設定・公開・保守
 
 - [カスタマイズ](docs/CUSTOMIZATION.md): 名前、配色、公開URL
-- [GitHub Pages公開](docs/DEPLOYMENT.md): 公開承認後の手順
+- [GitHub Pages公開](docs/DEPLOYMENT.md): 配信設定と更新手順
 - [上流更新](docs/UPSTREAM_UPDATE.md): JIZURA更新の取り込み
 - [原版の出典](docs/ORIGINAL_PROJECT.md)
 - [機能ガイド](docs/UPSTREAM_README.md): 元の操作説明

@@ -2,14 +2,16 @@
 
 確認日: 2026-10-04（日本時間）
 対象: SYNTHIA Lyrics Studio v0.1.0 / JIZURA v0.10.1
-対象URL: http://127.0.0.1:8089/ （Pagesに配信する _site/ をローカルHTTPで配信）
+公開対象URL: https://takashige2026.github.io/synthia-lyrics-studio/
+ローカル対象URL: http://127.0.0.1:8089/ （Pagesに配信する _site/ をローカルHTTPで配信）
 ブラウザ: このPCにインストールされたGoogle Chrome / Microsoft EdgeをPlaywrightから起動
-Browser plugin not available: 既存のPlaywrightとブラウザを使用。追加インストールなし。
+操作検査には既存のPlaywrightとブラウザを使用。追加インストールなし。公開画面は通常のChromeでも表示確認しました。
 
 ## 検証した操作
 
 起動→歌詞入力→3秒の合成WAV読み込み→LRC読み込み→プレビュー→タイムライン操作→スタイル変更→保存と再読み込み→リロード後の音源復元→LRC・MP4・PNG出力。
 利用者の音源・歌詞はテストに使用していません。
+以下の主要機能検査はローカル版と公開版の両方で実施し、公開版のChrome・Edgeは各22検査に合格しました。
 
 | 項目 | Chrome | Edge | 確認内容 |
 | --- | --- | --- | --- |
@@ -34,6 +36,17 @@ MP4はffprobeで映像・音声トラックを確認し、ffmpegで全体をデ�
 7言語も実際に起動し、ヘッダー、canonical、言語選択、実行時エラーがないことを確認しました。
 原版で保存したJSONをSYNTHIAで、SYNTHIAで保存したJSONを原版で読み込み、歌詞、スタイル、タイミング、シード、演出、手法、行指定を比較しました。
 
+## 公開と配信の確認
+
+- GitHub Actionsのビルド・配信成功（[公開結果文書を含むrun](https://github.com/takashige2026/synthia-lyrics-studio/actions/runs/37181828772)）
+- 公開7言語のHTTP 200、canonical・Open Graph・hreflang・sitemapを独自公開先で確認
+- 配信HTML7件は改行を正規化してローカル生成物と一致
+- LICENSE、THIRD_PARTY_NOTICES.md、vendor/LICENSE.mp4-muxer.txtは公開配信とローカルが一致
+- src/12_ui.js、app/body.html、原版のGoogle確認HTMLはPages配信から除外され、404を確認
+
+初回ActionsはPagesを有効にする前に起動したため失敗しました。有効化後の再実行と後続runは成功しています。
+公開版の検査結果と出力は synthia-lyrics-studio-qa/published-chrome/、published-msedge/、public-check-result.json に保存しています。
+
 ## 原版との比較
 
 改造前にも同じChrome操作テストを実行しています。
@@ -54,8 +67,6 @@ package_pages.pyは既存出力を上書きしません。再実行は新しい�
 
 ## 未確認
 
-- GitHub Pages実配信、公開先での操作（公開承認待ち）
-- GitHub Actionsでの実行（設定・ローカルの同等ビルド検査まで）
 - スマートフォン実機、Safari、Firefox
 - 長時間の曲、4K、全モーションの全組み合わせ
 - AE本体へのインストールと動作
