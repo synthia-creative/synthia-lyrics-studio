@@ -6,6 +6,10 @@
 'use strict';
 
 /* ---------- saving ---------- */
+// Download names only; project schemas and JIZURA storage keys stay compatible.
+J.fileBaseName = project => (String(project?.title ?? '').trim()
+  .replace(/[\\/:*?"<>|\x00-\x1f]+/g, '_').slice(0, 60)
+  .replace(/[. ]+$/g, '') || 'synthia_lyrics');
 J.saveFile = async (filename, data) => {
   const blob = data instanceof Blob ? data : new Blob([data]);
   try {
@@ -279,10 +283,10 @@ J.exportPNGZip = async ({ plan, project, transparent, layers, onProgress, signal
   const nFiles = Math.ceil(total / every) * (layers ? 2 : 1);
   if (nFiles > 0xffff) throw new Error(ZIP_TOO_BIG);        // say so before rendering, not after an hour
   const zip = new ZipWriter();
-  const scale = w / plan.W;
+  const scale = w / plan.W, prefix = J.fileBaseName(project);
   for (let i = 0; i < total; i += every) {
     if (signal && signal.aborted) throw new Error('キャンセルしました');
-    const name = `jizura_${String(i).padStart(5, '0')}.png`;
+    const name = `${prefix}_${String(i).padStart(5, '0')}.png`;
     for (const layer of layers ? ['back', 'front'] : [null]) {
       R.frame(ctx, plan, span.t0 + i / fps, { scale, transparent: transparent || !!layers, layer });
       const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));

@@ -18,7 +18,7 @@ class BlockStore {
   blob() { return new Blob(this.blocks.map(b => b.bytes), { type: 'video/mp4' }); }
 }
 function seeded(seed, fn) { const old = Math.random; Math.random = J.rng(seed); try { return fn(); } finally { Math.random = old; } }
-J.completeFileName = project => ((String(project.title || 'SYNTHIA').replace(/[\\/:*?"<>|\x00-\x1f]+/g, '_').replace(/[. ]+$/g, '').slice(0, 100) || 'SYNTHIA') + '.mp4');
+J.completeFileName = project => J.fileBaseName(project) + '.mp4';
 async function audioChunks(buffer, span, duration, muxer, signal, onProgress) {
   const sr = 48000, channels = Math.min(2, buffer.numberOfChannels), frames = Math.round(duration * sr);
   const cfg = { codec: 'mp4a.40.2', sampleRate: sr, numberOfChannels: channels, bitrate: 192000 };

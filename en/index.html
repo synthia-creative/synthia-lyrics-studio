@@ -531,7 +531,7 @@ button:hover { border-color: #64748b; }
 </div>
 <div id="app">
   <header class="bar">
-    <div class="brand" aria-label="SYNTHIA Lyrics Studio"><span class="mark">SYNTHIA</span><span class="word">Lyrics Studio</span><span class="ver" title="Base: JIZURA v0.10.1">v0.3.0</span></div>
+    <div class="brand" aria-label="SYNTHIA Lyrics Studio"><span class="mark">SYNTHIA</span><span class="word">Lyrics Studio</span><span class="ver" title="Base: JIZURA v0.10.1">v0.3.1</span></div>
     <div class="proj">
       <input id="songTitle" type="text" placeholder="Song title (shown on title cards and HUD)" aria-label="Song title">
       <input id="songArtist" type="text" placeholder="Artist" aria-label="Artist">
@@ -5382,6 +5382,10 @@ J.beatGrid = (bpm, offset, duration) => {
 'use strict';
 
 /* ---------- saving ---------- */
+// Download names only; project schemas and JIZURA storage keys stay compatible.
+J.fileBaseName = project => (String(project?.title ?? '').trim()
+  .replace(/[\\/:*?"<>|\x00-\x1f]+/g, '_').slice(0, 60)
+  .replace(/[. ]+$/g, '') || 'synthia_lyrics');
 J.saveFile = async (filename, data) => {
   const blob = data instanceof Blob ? data : new Blob([data]);
   try {
@@ -5655,10 +5659,10 @@ J.exportPNGZip = async ({ plan, project, transparent, layers, onProgress, signal
   const nFiles = Math.ceil(total / every) * (layers ? 2 : 1);
   if (nFiles > 0xffff) throw new Error(ZIP_TOO_BIG);        // say so before rendering, not after an hour
   const zip = new ZipWriter();
-  const scale = w / plan.W;
+  const scale = w / plan.W, prefix = J.fileBaseName(project);
   for (let i = 0; i < total; i += every) {
     if (signal && signal.aborted) throw new Error('Canceled');
-    const name = `jizura_${String(i).padStart(5, '0')}.png`;
+    const name = `${prefix}_${String(i).padStart(5, '0')}.png`;
     for (const layer of layers ? ['back', 'front'] : [null]) {
       R.frame(ctx, plan, span.t0 + i / fps, { scale, transparent: transparent || !!layers, layer });
       const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
@@ -36035,7 +36039,7 @@ class BlockStore {
   blob() { return new Blob(this.blocks.map(b => b.bytes), { type: 'video/mp4' }); }
 }
 function seeded(seed, fn) { const old = Math.random; Math.random = J.rng(seed); try { return fn(); } finally { Math.random = old; } }
-J.completeFileName = project => ((String(project.title || 'SYNTHIA').replace(/[\\/:*?"<>|\x00-\x1f]+/g, '_').replace(/[. ]+$/g, '').slice(0, 100) || 'SYNTHIA') + '.mp4');
+J.completeFileName = project => J.fileBaseName(project) + '.mp4';
 async function audioChunks(buffer, span, duration, muxer, signal, onProgress) {
   const sr = 48000, channels = Math.min(2, buffer.numberOfChannels), frames = Math.round(duration * sr);
   const cfg = { codec: 'mp4a.40.2', sampleRate: sr, numberOfChannels: channels, bitrate: 192000 };
@@ -37807,7 +37811,7 @@ async function codecNote() {
 const EXP_BTNS = ['btnCompleteMP4', 'btnCompleteMP4File', 'eCompleteMP4', 'eCompleteMP4File', 'btnMP4', 'btnPNG', 'btnPNGA', 'btnPNGL', 'eMP4', 'btnMP4File', 'eMP4File', 'ePNG', 'ePNGA', 'ePNGL'];
 function baseName() {
   const k = J.keyMode(S.project);
-  return ((S.project.title || 'jizura').replace(/[\\/:*?"<>|]+/g, '_').slice(0, 60) || 'jizura') + (k ? (k === 'green' ? '_greenback' : '_blackback') : '');
+  return J.fileBaseName(S.project) + (k ? (k === 'green' ? '_greenback' : '_blackback') : '');
 }
 const canPickFile = () => typeof window.showSaveFilePicker === 'function' && !document.documentElement.classList.contains('cep') && typeof VideoEncoder !== 'undefined';
 async function runExport(kind) {
@@ -38182,7 +38186,7 @@ function bind() {
   const openTerms = () => { if (dlg.showModal) { if (!dlg.open) dlg.showModal(); } else dlg.setAttribute('open', ''); };
   document.querySelectorAll('.terms-open').forEach(b => b.addEventListener('click', openTerms));
   dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close ? dlg.close() : dlg.removeAttribute('open'); });   // click on the backdrop
-  $('btnSave').addEventListener('click', () => J.saveFile(baseName() + '.jizura.json', JSON.stringify(Object.assign({}, S.project, { appVersion: '0.10.1' }), null, 1)));
+  $('btnSave').addEventListener('click', () => J.saveFile(J.fileBaseName(S.project) + '.synthia.json', JSON.stringify(Object.assign({}, S.project, { appVersion: '0.10.1' }), null, 1)));
   $('btnAE').addEventListener('click', () => J.saveFile(baseName() + rangeSuffix() + '_ae.json', JSON.stringify(J.planForAE(S.plan, S.project, exportRange()), null, 1)));
   audioNameDefault = $('audioName').textContent;
   $('btnClearLyrics').addEventListener('click', clearLyrics);

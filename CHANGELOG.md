@@ -1,5 +1,16 @@
 # SYNTHIA Custom Changelog
 
+## SYNTHIA Custom v0.3.1
+
+### Changed
+- 通常MP4・完成MP4・PNG ZIP・LRC・WAV・AE JSONの共通ベース名と、空欄時の `synthia_lyrics` を統一
+- 新規プロジェクト保存の拡張子を `.synthia.json` に変更
+- PNG ZIP内の画像もプロジェクト名から連番名を生成
+
+### Preserved
+- 旧 `.jizura.json` の読み込み、内部JSON形式、保存キー、タイミング、描画・エンコード
+- 素材出力の背景色・行範囲、透明PNG・レイヤーPNGの区別
+
 ## SYNTHIA Custom v0.2.0
 
 ### Added
