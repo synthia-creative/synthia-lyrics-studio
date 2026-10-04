@@ -469,3 +469,19 @@ button:hover { border-color: #64748b; }
   .brand .word { font-size: 12px; }
   .bar { gap: 8px; }
 }
+
+/* SYNTHIA work background: preview controls only. */
+.work-background .row { flex-wrap: wrap; }
+.work-background-name { margin: 8px 0; overflow-wrap: anywhere; }
+.work-background-fields { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.work-background-fields label { display: grid; gap: 4px; font-size: 12px; }
+.work-background-fields select { width: 100%; min-width: 0; }
+.work-background-opacity { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; margin-top: 10px; }
+.work-background-opacity input { width: 100%; }
+.work-background-opacity output { margin-left: auto; font-variant-numeric: tabular-nums; }
+.work-background p { font-size: 11px; line-height: 1.5; margin: 8px 0 0; }
+.work-background p:empty { display: none; }
+.srt-import .sec-h { flex-wrap: wrap; gap: 8px; }
+.srt-import .sec-h h2 { flex: 0 0 100%; }
+.srt-import .sec-btns { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+.srt-import .sec-btns > * { flex: 0 0 auto; white-space: nowrap; }

@@ -6,7 +6,13 @@ JIZURAをベースにカスタマイズした、個人向けリリックモー�
 GitHub: https://github.com/takashige2026/synthia-lyrics-studio
 2026-10-04にGitHub Pagesで公開し、公開版のChrome・Edgeで主要機能を確認しました。[公開結果](docs/PUBLICATION.md)と[動作確認](docs/QA.md)を参照してください。
 
-Base: JIZURA v0.10.1 / Custom: SYNTHIA Lyrics Studio v0.1.0
+Base: JIZURA v0.10.1 / Custom: SYNTHIA Lyrics Studio v0.2.0
+
+## 作業用背景・SRT
+
+画像・動画を作業用背景としてリリックと重ねてプレビューできます。背景はMP4・PNGへ含めません。
+SRTの開始・終了時刻を読み込み、背景動画も再生・停止・シーク・速度に連動します。
+背景ファイルは保存せず、プロジェクト再読み込み時に再選択します。[仕様と検証](docs/WORK_BACKGROUND.md)を参照してください。
 
 ## Based on JIZURA
 

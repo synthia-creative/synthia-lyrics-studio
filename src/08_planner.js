@@ -46,7 +46,7 @@ J.komaOf = fx => (fx.koma != null ? +fx.koma : (fx.onTwos === false ? 0 : 12));
 J.stepDur = (fx, fps) => { const k = J.komaOf(fx); return k > 0 ? 1 / k : 1 / (fps || 24); };
 
 /* ---------------- lyric parsing ---------------- */
-J.parseLyrics = (raw) => {
+J.parseLyrics = (raw, literal = false) => {
   const lines = []; const meta = {};
   let pendingGap = false;
   const rows = String(raw || '').replace(/\r/g, '').split('\n');
@@ -60,6 +60,12 @@ J.parseLyrics = (raw) => {
     let m;
     while ((m = s.match(/^\[(\d+):(\d+(?:[.:]\d+)?)\]/))) { times.push(+m[1] * 60 + parseFloat(m[2].replace(':', '.'))); s = s.slice(m[0].length); }
     s = s.trim();
+    if (literal && times.length && s) {
+      const base = { text: s, note: null, impact: false, emph: [], manual: null, gapBefore: pendingGap, src: ri };
+      pendingGap = false;
+      times.forEach(t => lines.push(Object.assign({}, base, { lrc: t })));
+      continue;
+    }
     // 間奏: [間奏] / [間奏 8] (8 seconds) — also [interlude] [inst] [间奏] [간주]; no lyrics, only background and decorations
     const im = s.match(/^\[\s*(間奏|间奏|interlude|instrumental|inst|간주)(?:\s*[:：]?\s*(\d+(?:\.\d+)?)\s*(?:s|sec|秒|초)?)?\s*\]$/i);
     if (im) {
@@ -245,6 +251,8 @@ J.computeTiming = (project, parsed, audio) => {
     i = j;
   }
   const ends = starts.map((s, i) => {
+    const end = T.source === 'srt' && T.lineEnds ? T.lineEnds[i] : null;
+    if (typeof end === 'number' && Number.isFinite(end) && end > s) return end;
     if (i < starts.length - 1) return Math.max(s + 0.35, starts[i + 1]);
     const n = [...lines[i].text].length, L = lines[i];
     let d = L.interlude ? (L.secs > 0 ? L.secs : 4) : J.clamp(0.8 + n * 0.17, 1.5, 5.2) * (T.lineScale || 1);
@@ -268,12 +276,12 @@ function cutTechOf(ov, k) {
 J.plan = (project, audio) => {
   const st = J.resolveStyle(project);
   const fx = Object.assign({}, J.defaultProject().fx, project.fx || {});
-  const parsed = J.parseLyrics(project.lyrics);
+  const parsed = J.parseLyrics(project.lyrics, project.timing?.source === 'srt');
   const title = project.title || parsed.meta.ti || '';
   const artist = project.artist || parsed.meta.ar || '';
   const tm = J.computeTiming(project, parsed, audio);
   // 文字整列: the lyrics appear 0.2 s before the voice (reading ahead feels in time)
-  if (project.typeset) {
+  if (project.typeset && project.timing?.source !== 'srt') {
     const LEAD = 0.2;
     tm.starts = tm.starts.map(t => Math.max(0, t - LEAD));
     tm.ends = tm.ends.map((t, i) => Math.max(tm.starts[i] + 0.3, t - LEAD));
@@ -345,7 +353,7 @@ J.plan = (project, audio) => {
       return;
     }
     const n = [...ln.text.replace(/\s+/g, '')].length;
-    const visEnd = Math.min(e, s + Math.max(3.6, n * 0.5 + 1.2));
+    const visEnd = project.timing?.source === 'srt' ? e : Math.min(e, s + Math.max(3.6, n * 0.5 + 1.2));
     const D = visEnd - s;
     plan.lines.push({ index: li, src: ln.src, lrc: ln.lrc, text: ln.text, start: s, end: e, visEnd, note: ln.note, impact: ln.impact, emph: ln.emph, chunks: null, seed: lineSeed });
     const chunks = ln.manual || (plan.lang === 'en' ? J.phraseChunks(J.chunkText(ln.text)) : J.chunkText(ln.text));

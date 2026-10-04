@@ -494,6 +494,22 @@ button:hover { border-color: #64748b; }
   .bar { gap: 8px; }
 }
 
+/* SYNTHIA work background: preview controls only. */
+.work-background .row { flex-wrap: wrap; }
+.work-background-name { margin: 8px 0; overflow-wrap: anywhere; }
+.work-background-fields { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.work-background-fields label { display: grid; gap: 4px; font-size: 12px; }
+.work-background-fields select { width: 100%; min-width: 0; }
+.work-background-opacity { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; margin-top: 10px; }
+.work-background-opacity input { width: 100%; }
+.work-background-opacity output { margin-left: auto; font-variant-numeric: tabular-nums; }
+.work-background p { font-size: 11px; line-height: 1.5; margin: 8px 0 0; }
+.work-background p:empty { display: none; }
+.srt-import .sec-h { flex-wrap: wrap; gap: 8px; }
+.srt-import .sec-h h2 { flex: 0 0 100%; }
+.srt-import .sec-btns { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+.srt-import .sec-btns > * { flex: 0 0 auto; white-space: nowrap; }
+
 </style>
 </head>
 <body>
@@ -508,7 +524,7 @@ button:hover { border-color: #64748b; }
 </div>
 <div id="app">
   <header class="bar">
-    <div class="brand" aria-label="SYNTHIA Lyrics Studio"><span class="mark">SYNTHIA</span><span class="word">Lyrics Studio</span><span class="ver" title="Base: JIZURA v0.10.1">v0.1.0</span></div>
+    <div class="brand" aria-label="SYNTHIA Lyrics Studio"><span class="mark">SYNTHIA</span><span class="word">Lyrics Studio</span><span class="ver" title="Base: JIZURA v0.10.1">v0.2.0</span></div>
     <div class="proj">
       <input id="songTitle" type="text" placeholder="曲名（タイトルカード・HUDに表示）" aria-label="曲名">
       <input id="songArtist" type="text" placeholder="アーティスト" aria-label="アーティスト">
@@ -3511,7 +3527,7 @@ J.komaOf = fx => (fx.koma != null ? +fx.koma : (fx.onTwos === false ? 0 : 12));
 J.stepDur = (fx, fps) => { const k = J.komaOf(fx); return k > 0 ? 1 / k : 1 / (fps || 24); };
 
 /* ---------------- lyric parsing ---------------- */
-J.parseLyrics = (raw) => {
+J.parseLyrics = (raw, literal = false) => {
   const lines = []; const meta = {};
   let pendingGap = false;
   const rows = String(raw || '').replace(/\r/g, '').split('\n');
@@ -3525,6 +3541,12 @@ J.parseLyrics = (raw) => {
     let m;
     while ((m = s.match(/^\[(\d+):(\d+(?:[.:]\d+)?)\]/))) { times.push(+m[1] * 60 + parseFloat(m[2].replace(':', '.'))); s = s.slice(m[0].length); }
     s = s.trim();
+    if (literal && times.length && s) {
+      const base = { text: s, note: null, impact: false, emph: [], manual: null, gapBefore: pendingGap, src: ri };
+      pendingGap = false;
+      times.forEach(t => lines.push(Object.assign({}, base, { lrc: t })));
+      continue;
+    }
     // 間奏: [間奏] / [間奏 8] (8 seconds) — also [interlude] [inst] [间奏] [간주]; no lyrics, only background and decorations
     const im = s.match(/^\[\s*(間奏|间奏|interlude|instrumental|inst|간주)(?:\s*[:：]?\s*(\d+(?:\.\d+)?)\s*(?:s|sec|秒|초)?)?\s*\]$/i);
     if (im) {
@@ -3710,6 +3732,8 @@ J.computeTiming = (project, parsed, audio) => {
     i = j;
   }
   const ends = starts.map((s, i) => {
+    const end = T.source === 'srt' && T.lineEnds ? T.lineEnds[i] : null;
+    if (typeof end === 'number' && Number.isFinite(end) && end > s) return end;
     if (i < starts.length - 1) return Math.max(s + 0.35, starts[i + 1]);
     const n = [...lines[i].text].length, L = lines[i];
     let d = L.interlude ? (L.secs > 0 ? L.secs : 4) : J.clamp(0.8 + n * 0.17, 1.5, 5.2) * (T.lineScale || 1);
@@ -3733,12 +3757,12 @@ function cutTechOf(ov, k) {
 J.plan = (project, audio) => {
   const st = J.resolveStyle(project);
   const fx = Object.assign({}, J.defaultProject().fx, project.fx || {});
-  const parsed = J.parseLyrics(project.lyrics);
+  const parsed = J.parseLyrics(project.lyrics, project.timing?.source === 'srt');
   const title = project.title || parsed.meta.ti || '';
   const artist = project.artist || parsed.meta.ar || '';
   const tm = J.computeTiming(project, parsed, audio);
   // 文字整列: the lyrics appear 0.2 s before the voice (reading ahead feels in time)
-  if (project.typeset) {
+  if (project.typeset && project.timing?.source !== 'srt') {
     const LEAD = 0.2;
     tm.starts = tm.starts.map(t => Math.max(0, t - LEAD));
     tm.ends = tm.ends.map((t, i) => Math.max(tm.starts[i] + 0.3, t - LEAD));
@@ -3810,7 +3834,7 @@ J.plan = (project, audio) => {
       return;
     }
     const n = [...ln.text.replace(/\s+/g, '')].length;
-    const visEnd = Math.min(e, s + Math.max(3.6, n * 0.5 + 1.2));
+    const visEnd = project.timing?.source === 'srt' ? e : Math.min(e, s + Math.max(3.6, n * 0.5 + 1.2));
     const D = visEnd - s;
     plan.lines.push({ index: li, src: ln.src, lrc: ln.lrc, text: ln.text, start: s, end: e, visEnd, note: ln.note, impact: ln.impact, emph: ln.emph, chunks: null, seed: lineSeed });
     const chunks = ln.manual || (plan.lang === 'en' ? J.phraseChunks(J.chunkText(ln.text)) : J.chunkText(ln.text));
@@ -4635,6 +4659,36 @@ J.omakase = (project, rnd = Math.random, themeId = null) => {
   const overrides = {};
   for (const [i, o] of Object.entries(project.overrides || {})) if (o.lock) overrides[i] = o; else if (o.cutTime) overrides[i] = { cutTime: o.cutTime };   // cut times are timing, not the look
   return Object.assign({ mood, style, fx, enabled, fonts, colors, overrides, seed: Math.floor(rnd() * 1e9) }, switches);
+};
+})();
+
+/* SYNTHIA SRT import adapter. Existing LRC and planner behaviour remain the default. */
+(() => {
+'use strict';
+J.parseSrt = raw => {
+  const en = document.documentElement.lang !== 'ja';
+  const fail = n => { throw new Error(en ? `Invalid or overlapping SRT cue ${n}. Use sequential, non-overlapping cues.` : `SRTの${n}番目の字幕が不正、または重複しています。時刻順で重ならない字幕を使用してください。`); };
+  const text = String(raw).replace(/^\ufeff/, '').replace(/\r\n?/g, '\n').trim();
+  if (!text) fail(1);
+  const cues = [];
+  const stamp = token => {
+    const m = token.match(/^(\d+):([0-5]\d):([0-5]\d)[,.](\d{1,3})$/);
+    return m ? +m[1] * 3600 + +m[2] * 60 + +m[3] + +(m[4].padEnd(3, '0')) / 1000 : NaN;
+  };
+  for (const block of text.split(/\n[ \t]*\n+/)) {
+    const rows = block.split('\n');
+    if (/^\d+$/.test(rows[0].trim())) rows.shift();
+    const m = rows.shift()?.trim().match(/^(\S+)\s*-->\s*(\S+)$/);
+    const n = cues.length + 1;
+    if (!m) fail(n);
+    const start = stamp(m[1]), end = stamp(m[2]);
+    // SRT line breaks become spaces within a single lyric phrase. Formatting tags are not executed.
+    const caption = rows.join(' ').replace(/<\/?(?:b|i|u|font)(?:\s[^>]*)?>/gi, '').trim();
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || !caption || (cues.length && (start < cues.at(-1).end || start - cues.at(-1).start < 0.05))) fail(n);
+    cues.push({ start, end, text: caption });
+  }
+  const tag = t => { const ms = Math.round(t * 1000); return `[${String(Math.floor(ms / 60000)).padStart(2, '0')}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}.${String(ms % 1000).padStart(3, '0')}]`; };
+  return { lyrics: cues.map(c => tag(c.start) + c.text).join('\n'), ends: Object.fromEntries(cues.map((c, i) => [i, c.end])), count: cues.length };
 };
 })();
 
@@ -35955,6 +36009,8 @@ function mergeProject(p) {
   for (const [g, on] of Object.entries((p && p.locks && p.locks.tech) || {})) if (on === true && /^[\w-]+$/.test(g)) o.locks.tech[g] = true;
   for (const [k, on] of Object.entries((p && p.locks && p.locks.params) || {})) if (on === true && /^[\w-]+$/.test(k)) o.locks.params[k] = true;
   delete o.appVersion;
+  if (p && Object.hasOwn(p, 'workBackground') && J.workBackground) o.workBackground = J.workBackground.normalize(p.workBackground);
+  else delete o.workBackground;
   // project files are untrusted: colours must be colours, font keys plain keys (they end up in the page's HTML / CSS)
   o.colors = { enabled: !!(p && p.colors && p.colors.enabled) };
   for (const [k, v] of Object.entries((p && p.colors) || {})) {
@@ -36100,7 +36156,8 @@ function drawCenterGuide(ctx, k) {
 function draw() {
   const c = $('view'), ctx = c.getContext('2d');
   const t0 = performance.now();
-  S.renderer.frame(ctx, S.plan, S.t, { scale: c.width / S.plan.W, fast: S.playing && S.slow });
+  const opt = { scale: c.width / S.plan.W, fast: S.playing && S.slow };
+  if (!J.workBackground?.draw(ctx, S.plan, S.t, opt)) S.renderer.frame(ctx, S.plan, S.t, opt);
   if (S.plan.centerFree) drawCenterGuide(ctx, c.width / S.plan.W);
   const dt = performance.now() - t0;
   S.slow = S.playing ? (dt > 30 ? true : dt < 14 ? false : S.slow) : false;
@@ -36108,6 +36165,7 @@ function draw() {
 }
 function tick(now) {
   requestAnimationFrame(tick);
+  J.workBackground?.sync();
   if (S.exporting) return;
   if (S.playing) {
     // rAF timestamps can precede the moment play()/seek() stamped t0 → clamp so t never goes negative
@@ -36120,6 +36178,7 @@ function tick(now) {
     S.t = t; S.need = true;
     followTlPlayhead();
   }
+  J.workBackground?.sync();
   if (S.need) { S.need = false; draw(); }
 }
 function updateTimeUI() {
@@ -36133,10 +36192,10 @@ function play() {
   refreshLoopHold();
   if (S.audio) AP.play(S.audio.buffer, S.t, playRate());
   else S.t0 = performance.now() - S.t * 1000 / playRate();
-  S.playing = true; $('btnPlay').textContent = '❚❚'; $('btnPlay').setAttribute('aria-label', '一時停止');
+  S.playing = true; J.workBackground?.resume(); $('btnPlay').textContent = '❚❚'; $('btnPlay').setAttribute('aria-label', '一時停止');
 }
 function pause() {
-  S.playing = false; AP.stop();
+  S.playing = false; AP.stop(); J.workBackground?.sync(true);
   $('btnPlay').textContent = '▶'; $('btnPlay').setAttribute('aria-label', '再生'); S.need = true;
 }
 function seek(t) {
@@ -36144,6 +36203,7 @@ function seek(t) {
   if (S.audio) { if (S.playing) AP.play(S.audio.buffer, S.t, playRate()); }
   else S.t0 = performance.now() - S.t * 1000 / playRate();
   refreshLoopHold();
+  J.workBackground?.sync(true);
   S.need = true;
 }
 
@@ -36615,7 +36675,7 @@ function editLine(li, ln) {
 /* ---------------- 歌詞・タイミングの取り消し（Ctrl+Z） ---------------- */
 // separate from the ◀ ▶ history of looks: lyric edits, dragged / typed / tapped line times
 const ED = { undo: [], redo: [] };
-const edSnap = () => JSON.stringify({ lyrics: S.project.lyrics, lineTimes: S.project.timing.lineTimes || {} });
+const edSnap = () => JSON.stringify({ lyrics: S.project.lyrics, lineTimes: S.project.timing.lineTimes || {}, lineEnds: S.project.timing.lineEnds, source: S.project.timing.source });
 function pushEdit() { const s = edSnap(); if (ED.undo[ED.undo.length - 1] !== s) ED.undo.push(s); if (ED.undo.length > 60) ED.undo.shift(); ED.redo = []; updateEditBtns(); }
 function edGo(d) {
   const from = d < 0 ? ED.undo : ED.redo, to = d < 0 ? ED.redo : ED.undo;
@@ -36624,6 +36684,8 @@ function edGo(d) {
   if ('ov' in o) { cur.ov = S.project.overrides; cur.range = S.project.exportRange || null; }   // clearLyrics() also cleared these
   to.push(JSON.stringify(cur));
   S.project.lyrics = o.lyrics; S.project.timing.lineTimes = o.lineTimes; $('lyrics').value = o.lyrics;
+  delete S.project.timing.lineEnds; delete S.project.timing.source;
+  if (o.source === 'srt' && o.lineEnds) { S.project.timing.lineEnds = o.lineEnds; S.project.timing.source = 'srt'; }
   if ('ov' in o) { S.project.overrides = o.ov || {}; S.project.exportRange = o.range || null; }
   replan(); flushSave(); updateEditBtns();
   toast(d < 0 ? '元に戻しました' : 'やり直しました');
@@ -36636,10 +36698,18 @@ function loadLrc(text) {
   ED.undo.push(JSON.stringify(snap)); if (ED.undo.length > 60) ED.undo.shift(); ED.redo = [];
   pause();
   P.lyrics = String(text).replace(/^\ufeff/, '').replace(/\r\n?/g, '\n').trim(); P.timing.lineTimes = {}; P.overrides = {}; P.exportRange = null;
+  delete P.timing.lineEnds; delete P.timing.source;
   $('lyrics').value = P.lyrics;
   replan(); flushSave(); updateEditBtns(); seek(0);
   const n = J.parseLyrics(P.lyrics).lines.filter(l => l.lrc != null).length;
   toast(`LRC を読み込みました（時刻付き ${n} 行・「元に戻す」で戻せます）`);
+}
+function loadSrt(parsed) {
+  if (S.tap || S.exporting) return;
+  loadLrc(parsed.lyrics);
+  S.project.timing.lineEnds = parsed.ends; S.project.timing.source = 'srt';
+  replan(); flushSave(); seek(0);
+  toast(document.documentElement.lang === 'ja' ? `SRT を読み込みました（${parsed.count}字幕・開始と終了時刻を保持）` : `SRT loaded (${parsed.count} cues; start and end times preserved)`);
 }
 function saveLrc() {
   const R = exportRangeLines(), r = exportRange();
@@ -36654,7 +36724,8 @@ function clearLyrics() {
   const snap = JSON.parse(edSnap()); snap.ov = P.overrides || {}; snap.range = P.exportRange || null;
   ED.undo.push(JSON.stringify(snap)); if (ED.undo.length > 60) ED.undo.shift(); ED.redo = [];
   pause();
-  P.lyrics = ''; P.timing.lineTimes = {}; P.overrides = {}; P.exportRange = null; $('lyrics').value = '';
+  P.lyrics = ''; P.timing.lineTimes = {}; P.overrides = {}; P.exportRange = null;
+  delete P.timing.lineEnds; delete P.timing.source; $('lyrics').value = '';
   replan(); flushSave(); updateEditBtns(); seek(0);
   toast('歌詞を消しました（「元に戻す」か Ctrl+Z で戻せます）');
 }
@@ -37413,6 +37484,7 @@ function updateTap() {
 
 /* ---------------- sync all inputs from project ---------------- */
 function syncUI() {
+  J.workBackground?.adoptProject(S.project);
   $('songTitle').value = S.project.title || ''; $('songArtist').value = S.project.artist || '';
   $('lyrics').value = S.project.lyrics;
   $('bpm').value = S.project.timing.bpm > 0 ? S.project.timing.bpm : '';
@@ -37432,7 +37504,7 @@ function syncUI() {
 
 /* ---------------- wiring ---------------- */
 function bind() {
-  $('lyrics').addEventListener('input', e => { S.project.lyrics = e.target.value; replanSoon(260); });
+  $('lyrics').addEventListener('input', e => { delete S.project.timing.lineEnds; delete S.project.timing.source; S.project.lyrics = e.target.value; replanSoon(260); });
   $('lyricLang').addEventListener('change', e => {
     remember();
     S.project.lang = e.target.value; replan(); renderFontRoles(); commit(); flushSave();
@@ -37781,7 +37853,197 @@ function boot() {
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 J.ui = S;
 // hooks for hosts that embed the app (the After Effects CEP panel)
-J.uiApi = { toast, replan, syncUI, pause, seek, flushSave, loadAudioFile, restartPreview, exportRange, exportRangeLines };
+J.uiApi = { toast, replan, syncUI, pause, seek, flushSave, loadAudioFile, loadSrt, restartPreview, exportRange, exportRangeLines };
+})();
+
+/* SYNTHIA: session-only preview media. Independently implemented; see docs/WORK_BACKGROUND.md. */
+(() => {
+'use strict';
+if (!document.getElementById('app') || !J.ui) return;
+const $ = id => document.getElementById(id);
+const copies = {
+  ja: ['作業用背景','画像・動画を選択','解除','表示','背景＋リリック','通常表示','フィット','全体表示（contain）','画面いっぱい（cover）','背景不透明度','未選択','読み込み中…','作業用背景を再選択してください','この形式は読み込めません。別の画像・動画を選択してください。','プレビュー専用です。MP4・PNGには含めません。動画終了後は最後のフレームを保持します。','動画の再生を開始できません。再生ボタンを押し直してください。'],
+  en: ['Work background','Select image / video','Clear','Display','Background + lyrics','Normal view','Fit','Show all (contain)','Fill frame (cover)','Background opacity','None','Loading…','Please select the work background again','Cannot load this format. Select another image or video.','Preview only; excluded from MP4 / PNG. The last video frame is held after it ends.','Video could not start. Press play again.'],
+  'zh-Hant': ['工作背景','選擇圖片／影片','清除','顯示','背景＋歌詞','一般顯示','適配','完整顯示（contain）','填滿畫面（cover）','背景不透明度','未選擇','載入中…','請重新選擇工作背景','無法載入此格式，請選擇其他圖片或影片。','僅供預覽，不包含在 MP4／PNG 中。影片結束後保留最後一幀。','無法開始播放影片，請再次按播放。'],
+  'zh-Hans': ['工作背景','选择图片／视频','清除','显示','背景＋歌词','正常显示','适配','完整显示（contain）','填满画面（cover）','背景不透明度','未选择','加载中…','请重新选择工作背景','无法加载此格式，请选择其他图片或视频。','仅供预览，不包含在 MP4／PNG 中。视频结束后保留最后一帧。','无法开始播放视频，请再次按播放。'],
+  ko: ['작업 배경','이미지 / 동영상 선택','해제','표시','배경 + 가사','일반 표시','맞춤','전체 표시 (contain)','화면 채우기 (cover)','배경 불투명도','선택 안 됨','불러오는 중…','작업 배경을 다시 선택하세요','이 형식을 불러올 수 없습니다. 다른 이미지나 동영상을 선택하세요.','미리보기 전용이며 MP4 / PNG에 포함되지 않습니다. 동영상 종료 후 마지막 프레임을 유지합니다.','동영상을 재생할 수 없습니다. 재생 버튼을 다시 누르세요.'],
+  'id-ID': ['Latar kerja','Pilih gambar / video','Hapus','Tampilan','Latar + lirik','Tampilan biasa','Ukuran','Tampilkan semua (contain)','Penuhi bingkai (cover)','Opasitas latar','Belum dipilih','Memuat…','Pilih kembali latar kerja','Format ini tidak dapat dimuat. Pilih gambar atau video lain.','Hanya pratinjau; tidak disertakan dalam MP4 / PNG. Bingkai terakhir ditahan setelah video selesai.','Video tidak dapat dimulai. Tekan putar lagi.'],
+  vi: ['Nền làm việc','Chọn ảnh / video','Xóa','Hiển thị','Nền + lời bài hát','Hiển thị thường','Căn chỉnh','Hiển thị toàn bộ (contain)','Lấp đầy khung (cover)','Độ đục của nền','Chưa chọn','Đang tải…','Vui lòng chọn lại nền làm việc','Không thể tải định dạng này. Hãy chọn ảnh hoặc video khác.','Chỉ để xem trước; không xuất vào MP4 / PNG. Giữ khung hình cuối khi video kết thúc.','Không thể phát video. Hãy nhấn phát lại.'],
+};
+const copy = copies[document.documentElement.lang] || copies.en;
+const state = { media: null, pending: null, generation: 0, project: null, playPending: false, playBlocked: false };
+const lyricCanvas = document.createElement('canvas');
+const lyricRenderer = new J.Renderer();
+const normalize = value => ({ enabled: value?.enabled === true, fit: value?.fit === 'cover' ? 'cover' : 'contain', opacity: typeof value?.opacity === 'number' && Number.isFinite(value.opacity) ? Math.max(0, Math.min(1, value.opacity)) : 1 });
+let settings = normalize(null);
+const panel = document.createElement('section');
+panel.id = 'workBackground'; panel.className = 'sec work-background';
+// All markup comes from the fixed glossary. File names are assigned with textContent.
+panel.innerHTML = `<div class="sec-h"><h2>${copy[0]}</h2></div>
+  <div class="row"><label class="file">${copy[1]}<input id="wbFile" type="file" accept="image/*,video/*" aria-label="${copy[1]}"></label><button id="wbClear" class="ghost small" disabled>${copy[2]}</button></div>
+  <div id="wbName" class="muted work-background-name">${copy[10]}</div>
+  <div class="work-background-fields"><label>${copy[3]}<select id="wbMode" aria-label="${copy[3]}"><option value="combined">${copy[4]}</option><option value="normal" selected>${copy[5]}</option></select></label>
+  <label>${copy[6]}<select id="wbFit" aria-label="${copy[6]}"><option value="contain">${copy[7]}</option><option value="cover">${copy[8]}</option></select></label></div>
+  <label class="work-background-opacity" for="wbOpacity">${copy[9]} <output id="wbOpacityValue" for="wbOpacity">100%</output><input id="wbOpacity" type="range" min="0" max="100" step="1" value="100"></label>
+  <p id="wbStatus" class="muted" role="status" aria-live="polite"></p><p class="muted work-background-help">${copy[14]}</p>`;
+$('audioFile').closest('.sec').after(panel);
+const dirty = () => { J.ui.need = true; };
+const status = text => { $('wbStatus').textContent = text; };
+function refreshControls() {
+  $('wbMode').value = settings.enabled ? 'combined' : 'normal';
+  $('wbFit').value = settings.fit;
+  $('wbOpacity').value = String(Math.round(settings.opacity * 100));
+  $('wbOpacityValue').value = Math.round(settings.opacity * 100) + '%';
+  $('wbClear').disabled = !state.media && !state.pending;
+  $('wbName').textContent = state.media?.name || copy[10];
+}
+function rememberSettings() {
+  if (!J.ui.project) return;
+  J.ui.project.workBackground = { ...settings };
+  J.uiApi.flushSave();
+}
+function dispose(record) {
+  if (!record || record.disposed) return;
+  record.disposed = true;
+  record.cancel?.();
+  if (record.video) record.el.pause();
+  record.el.removeAttribute('src');
+  if (record.video) record.el.load();
+  URL.revokeObjectURL(record.url);
+}
+function release() {
+  state.generation++;
+  dispose(state.pending); dispose(state.media);
+  state.pending = null; state.media = null;
+  state.playPending = false; state.playBlocked = false;
+  $('wbFile').value = '';
+}
+function adoptProject(project) {
+  if (!project || state.project === project) return;
+  release(); state.project = project;
+  settings = normalize(project.workBackground);
+  // Only this allow-listed settings object survives project imports. Never retain a blob URL or file data.
+  if (Object.hasOwn(project, 'workBackground')) project.workBackground = { ...settings };
+  status(Object.hasOwn(project, 'workBackground') ? copy[12] : '');
+  refreshControls(); dirty();
+}
+async function selectFile(file) {
+  release();
+  const generation = state.generation;
+  const project = J.ui.project;
+  const video = file.type.startsWith('video/') || (!file.type && /\.(mp4|webm|mov|m4v|ogv|ogg)$/i.test(file.name));
+  const record = { el: document.createElement(video ? 'video' : 'img'), video, url: URL.createObjectURL(file), name: file.name, disposed: false };
+  if (video) { record.el.muted = true; record.el.playsInline = true; record.el.preload = 'auto'; record.el.loop = false; }
+  state.pending = record; status(copy[11]); refreshControls(); dirty();
+  try {
+    await new Promise((resolve, reject) => {
+      const event = video ? 'loadeddata' : 'load';
+      const finish = error => {
+        clearTimeout(timer); record.el.removeEventListener(event, ready); record.el.removeEventListener('error', failed); record.cancel = null;
+        error ? reject(error) : resolve();
+      };
+      const ready = () => finish();
+      const failed = () => finish(new Error('decode'));
+      const timer = setTimeout(() => finish(new Error('timeout')), 30000);
+      record.cancel = () => finish(new Error('cancelled'));
+      record.el.addEventListener(event, ready, { once: true }); record.el.addEventListener('error', failed, { once: true });
+      record.el.src = record.url;
+      if (video) record.el.load();
+    });
+    if (generation !== state.generation || project !== J.ui.project) { dispose(record); return; }
+    record.width = video ? record.el.videoWidth : record.el.naturalWidth;
+    record.height = video ? record.el.videoHeight : record.el.naturalHeight;
+    record.duration = video ? record.el.duration : Infinity;
+    if (!record.width || !record.height || (video && (!Number.isFinite(record.duration) || record.duration <= 0))) throw new Error('metadata');
+    state.pending = null; state.media = record;
+    if (video) {
+      for (const event of ['seeked', 'loadeddata', 'ended']) record.el.addEventListener(event, () => { if (!record.disposed) dirty(); });
+    }
+    settings.enabled = true; state.playBlocked = false;
+    rememberSettings(); status(''); refreshControls(); sync(true); dirty();
+  } catch (error) {
+    dispose(record);
+    if (generation !== state.generation) return;
+    state.pending = null; status(copy[13]); refreshControls(); dirty();
+  }
+}
+function sync(force = false) {
+  const record = state.media;
+  if (!record?.video || record.disposed) return;
+  const v = record.el, ui = J.ui;
+  if (!settings.enabled || ui.exporting) { v.pause(); return; }
+  const rate = ui.tap?.rate > 0 ? ui.tap.rate : 1;
+  if (v.playbackRate !== rate) v.playbackRate = rate;
+  const target = Math.max(0, Math.min(ui.t, Math.max(0, record.duration - 0.001)));
+  const playing = ui.playing && ui.t < record.duration;
+  if (!playing) v.pause();
+  const drift = Math.abs(v.currentTime - target);
+  // Native playback advances the media clock; seek only for jumps or a drift over 150 ms.
+  // A paused scrub may interrupt an in-flight seek so the latest position wins.
+  if (drift > (playing && !force ? 0.15 : 0.0005) && (!v.seeking || !playing || force)) v.currentTime = target;
+  if (playing && v.paused && !state.playPending && !state.playBlocked) {
+    state.playPending = true;
+    v.play().catch(() => { if (state.media === record && !record.disposed) { state.playBlocked = true; status(copy[15]); } })
+      .finally(() => { if (state.media === record) { state.playPending = false; if (!settings.enabled || !ui.playing || ui.exporting || ui.t >= record.duration) v.pause(); } });
+  }
+}
+function draw(ctx, plan, t, opt) {
+  if (!settings.enabled || !state.media || state.media.disposed || J.ui.exporting) return false;
+  const record = state.media, w = ctx.canvas.width, h = ctx.canvas.height;
+  if (lyricCanvas.width !== w || lyricCanvas.height !== h) { lyricCanvas.width = w; lyricCanvas.height = h; }
+  lyricRenderer.frame(lyricCanvas.getContext('2d'), plan, t, { ...opt, transparent: true });
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.filter = 'none';
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
+  if (!record.video || record.el.readyState >= 2) {
+    const ratio = (settings.fit === 'cover' ? Math.max : Math.min)(w / record.width, h / record.height);
+    const dw = record.width * ratio, dh = record.height * ratio;
+    ctx.globalAlpha = settings.opacity;
+    ctx.drawImage(record.el, (w - dw) / 2, (h - dh) / 2, dw, dh);
+  }
+  ctx.globalAlpha = 1; ctx.drawImage(lyricCanvas, 0, 0); ctx.restore();
+  return true;
+}
+$('wbFile').addEventListener('change', event => {
+  const file = event.target.files?.[0]; event.target.value = '';
+  if (file) void selectFile(file);
+});
+$('wbClear').addEventListener('click', () => {
+  release(); settings.enabled = false; rememberSettings(); status(''); refreshControls(); dirty();
+});
+$('wbMode').addEventListener('change', () => {
+  settings.enabled = $('wbMode').value === 'combined'; state.playBlocked = false;
+  rememberSettings(); status(settings.enabled && !state.media ? copy[12] : ''); sync(true); dirty();
+});
+$('wbFit').addEventListener('change', () => { settings.fit = $('wbFit').value === 'cover' ? 'cover' : 'contain'; rememberSettings(); dirty(); });
+$('wbOpacity').addEventListener('input', () => { settings.opacity = +$('wbOpacity').value / 100; rememberSettings(); refreshControls(); dirty(); });
+window.addEventListener('pagehide', () => { release(); refreshControls(); });
+window.addEventListener('pageshow', () => { if (state.project && Object.hasOwn(state.project, 'workBackground') && !state.media) status(copy[12]); dirty(); });
+J.workBackground = { normalize, adoptProject, sync, draw, state, resume: () => { state.playBlocked = false; sync(true); } };
+})();
+
+/* Local SRT file selection; validation precedes replacement of existing lyrics. */
+(() => {
+'use strict';
+if (!document.getElementById('app') || !J.ui) return;
+const ja = document.documentElement.lang === 'ja';
+const label = document.createElement('label'); label.className = 'file ghost small';
+label.append(document.createTextNode(ja ? 'SRT を読み込む' : 'Load SRT'));
+const input = document.createElement('input'); input.id = 'fileSrt'; input.type = 'file'; input.accept = '.srt,text/plain,application/x-subrip';
+input.setAttribute('aria-label', ja ? 'SRT を読み込む' : 'Load SRT'); label.append(input);
+document.getElementById('fileLrc').closest('label').after(label);
+label.closest('.sec').classList.add('srt-import');
+input.addEventListener('change', async event => {
+  const file = event.target.files?.[0]; event.target.value = ''; if (!file) return;
+  if (J.ui.tap || J.ui.exporting) { J.uiApi.toast(ja ? '再生同期・書き出しを終了してから読み込んでください' : 'Finish tapping or exporting before importing.'); return; }
+  try {
+    if (file.size > 2e6) throw new Error(ja ? 'SRT ファイルが大きすぎます' : 'SRT file is too large.');
+    const text = new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer());
+    const parsed = J.parseSrt(text);
+    if (J.ui.project.lyrics.trim() && !window.confirm(ja ? '今の歌詞をSRTの内容に置き換えます。行ごとの時刻・指定・書き出す範囲も消えます。「元に戻す」で戻せます。よろしいですか？' : 'Replace the lyrics with this SRT? Per-line timing, settings and export range are cleared. Undo restores them.')) return;
+    J.uiApi.loadSrt(parsed);
+  } catch (error) { J.uiApi.toast(error.message || (ja ? 'SRT を読み込めませんでした' : 'Cannot load SRT.')); }
+});
 })();
 
 </script>

@@ -1,5 +1,17 @@
 # SYNTHIA Custom Changelog
 
+## SYNTHIA Custom v0.2.0
+
+### Added
+- セッション内の画像・動画による作業用背景プレビュー、contain/cover、不透明度、解除
+- 動画の再生・停止・シーク・タップ同期速度への連動、最終フレーム保持
+- 設定だけのJSON保存と背景再選択の案内
+- SRT読み込み、開始・終了時刻保持、タイミング指定の取り消し
+
+### Preserved
+- 通常表示とMP4・PNG出力には作業用背景を含めない
+- 既存のJIZURA/LRCプロジェクトの計画、Renderer本体、書き出し処理、ライセンス
+
 ## SYNTHIA Custom v0.1.0
 
 ### Added

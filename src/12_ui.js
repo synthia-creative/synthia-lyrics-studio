@@ -114,6 +114,8 @@ function mergeProject(p) {
   for (const [g, on] of Object.entries((p && p.locks && p.locks.tech) || {})) if (on === true && /^[\w-]+$/.test(g)) o.locks.tech[g] = true;
   for (const [k, on] of Object.entries((p && p.locks && p.locks.params) || {})) if (on === true && /^[\w-]+$/.test(k)) o.locks.params[k] = true;
   delete o.appVersion;
+  if (p && Object.hasOwn(p, 'workBackground') && J.workBackground) o.workBackground = J.workBackground.normalize(p.workBackground);
+  else delete o.workBackground;
   // project files are untrusted: colours must be colours, font keys plain keys (they end up in the page's HTML / CSS)
   o.colors = { enabled: !!(p && p.colors && p.colors.enabled) };
   for (const [k, v] of Object.entries((p && p.colors) || {})) {
@@ -259,7 +261,8 @@ function drawCenterGuide(ctx, k) {
 function draw() {
   const c = $('view'), ctx = c.getContext('2d');
   const t0 = performance.now();
-  S.renderer.frame(ctx, S.plan, S.t, { scale: c.width / S.plan.W, fast: S.playing && S.slow });
+  const opt = { scale: c.width / S.plan.W, fast: S.playing && S.slow };
+  if (!J.workBackground?.draw(ctx, S.plan, S.t, opt)) S.renderer.frame(ctx, S.plan, S.t, opt);
   if (S.plan.centerFree) drawCenterGuide(ctx, c.width / S.plan.W);
   const dt = performance.now() - t0;
   S.slow = S.playing ? (dt > 30 ? true : dt < 14 ? false : S.slow) : false;
@@ -267,6 +270,7 @@ function draw() {
 }
 function tick(now) {
   requestAnimationFrame(tick);
+  J.workBackground?.sync();
   if (S.exporting) return;
   if (S.playing) {
     // rAF timestamps can precede the moment play()/seek() stamped t0 → clamp so t never goes negative
@@ -279,6 +283,7 @@ function tick(now) {
     S.t = t; S.need = true;
     followTlPlayhead();
   }
+  J.workBackground?.sync();
   if (S.need) { S.need = false; draw(); }
 }
 function updateTimeUI() {
@@ -292,10 +297,10 @@ function play() {
   refreshLoopHold();
   if (S.audio) AP.play(S.audio.buffer, S.t, playRate());
   else S.t0 = performance.now() - S.t * 1000 / playRate();
-  S.playing = true; $('btnPlay').textContent = '❚❚'; $('btnPlay').setAttribute('aria-label', '一時停止');
+  S.playing = true; J.workBackground?.resume(); $('btnPlay').textContent = '❚❚'; $('btnPlay').setAttribute('aria-label', '一時停止');
 }
 function pause() {
-  S.playing = false; AP.stop();
+  S.playing = false; AP.stop(); J.workBackground?.sync(true);
   $('btnPlay').textContent = '▶'; $('btnPlay').setAttribute('aria-label', '再生'); S.need = true;
 }
 function seek(t) {
@@ -303,6 +308,7 @@ function seek(t) {
   if (S.audio) { if (S.playing) AP.play(S.audio.buffer, S.t, playRate()); }
   else S.t0 = performance.now() - S.t * 1000 / playRate();
   refreshLoopHold();
+  J.workBackground?.sync(true);
   S.need = true;
 }
 
@@ -774,7 +780,7 @@ function editLine(li, ln) {
 /* ---------------- 歌詞・タイミングの取り消し（Ctrl+Z） ---------------- */
 // separate from the ◀ ▶ history of looks: lyric edits, dragged / typed / tapped line times
 const ED = { undo: [], redo: [] };
-const edSnap = () => JSON.stringify({ lyrics: S.project.lyrics, lineTimes: S.project.timing.lineTimes || {} });
+const edSnap = () => JSON.stringify({ lyrics: S.project.lyrics, lineTimes: S.project.timing.lineTimes || {}, lineEnds: S.project.timing.lineEnds, source: S.project.timing.source });
 function pushEdit() { const s = edSnap(); if (ED.undo[ED.undo.length - 1] !== s) ED.undo.push(s); if (ED.undo.length > 60) ED.undo.shift(); ED.redo = []; updateEditBtns(); }
 function edGo(d) {
   const from = d < 0 ? ED.undo : ED.redo, to = d < 0 ? ED.redo : ED.undo;
@@ -783,6 +789,8 @@ function edGo(d) {
   if ('ov' in o) { cur.ov = S.project.overrides; cur.range = S.project.exportRange || null; }   // clearLyrics() also cleared these
   to.push(JSON.stringify(cur));
   S.project.lyrics = o.lyrics; S.project.timing.lineTimes = o.lineTimes; $('lyrics').value = o.lyrics;
+  delete S.project.timing.lineEnds; delete S.project.timing.source;
+  if (o.source === 'srt' && o.lineEnds) { S.project.timing.lineEnds = o.lineEnds; S.project.timing.source = 'srt'; }
   if ('ov' in o) { S.project.overrides = o.ov || {}; S.project.exportRange = o.range || null; }
   replan(); flushSave(); updateEditBtns();
   toast(d < 0 ? '元に戻しました' : 'やり直しました');
@@ -795,10 +803,18 @@ function loadLrc(text) {
   ED.undo.push(JSON.stringify(snap)); if (ED.undo.length > 60) ED.undo.shift(); ED.redo = [];
   pause();
   P.lyrics = String(text).replace(/^\ufeff/, '').replace(/\r\n?/g, '\n').trim(); P.timing.lineTimes = {}; P.overrides = {}; P.exportRange = null;
+  delete P.timing.lineEnds; delete P.timing.source;
   $('lyrics').value = P.lyrics;
   replan(); flushSave(); updateEditBtns(); seek(0);
   const n = J.parseLyrics(P.lyrics).lines.filter(l => l.lrc != null).length;
   toast(`LRC を読み込みました（時刻付き ${n} 行・「元に戻す」で戻せます）`);
+}
+function loadSrt(parsed) {
+  if (S.tap || S.exporting) return;
+  loadLrc(parsed.lyrics);
+  S.project.timing.lineEnds = parsed.ends; S.project.timing.source = 'srt';
+  replan(); flushSave(); seek(0);
+  toast(document.documentElement.lang === 'ja' ? `SRT を読み込みました（${parsed.count}字幕・開始と終了時刻を保持）` : `SRT loaded (${parsed.count} cues; start and end times preserved)`);
 }
 function saveLrc() {
   const R = exportRangeLines(), r = exportRange();
@@ -813,7 +829,8 @@ function clearLyrics() {
   const snap = JSON.parse(edSnap()); snap.ov = P.overrides || {}; snap.range = P.exportRange || null;
   ED.undo.push(JSON.stringify(snap)); if (ED.undo.length > 60) ED.undo.shift(); ED.redo = [];
   pause();
-  P.lyrics = ''; P.timing.lineTimes = {}; P.overrides = {}; P.exportRange = null; $('lyrics').value = '';
+  P.lyrics = ''; P.timing.lineTimes = {}; P.overrides = {}; P.exportRange = null;
+  delete P.timing.lineEnds; delete P.timing.source; $('lyrics').value = '';
   replan(); flushSave(); updateEditBtns(); seek(0);
   toast('歌詞を消しました（「元に戻す」か Ctrl+Z で戻せます）');
 }
@@ -1572,6 +1589,7 @@ function updateTap() {
 
 /* ---------------- sync all inputs from project ---------------- */
 function syncUI() {
+  J.workBackground?.adoptProject(S.project);
   $('songTitle').value = S.project.title || ''; $('songArtist').value = S.project.artist || '';
   $('lyrics').value = S.project.lyrics;
   $('bpm').value = S.project.timing.bpm > 0 ? S.project.timing.bpm : '';
@@ -1591,7 +1609,7 @@ function syncUI() {
 
 /* ---------------- wiring ---------------- */
 function bind() {
-  $('lyrics').addEventListener('input', e => { S.project.lyrics = e.target.value; replanSoon(260); });
+  $('lyrics').addEventListener('input', e => { delete S.project.timing.lineEnds; delete S.project.timing.source; S.project.lyrics = e.target.value; replanSoon(260); });
   $('lyricLang').addEventListener('change', e => {
     remember();
     S.project.lang = e.target.value; replan(); renderFontRoles(); commit(); flushSave();
@@ -1940,5 +1958,5 @@ function boot() {
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 J.ui = S;
 // hooks for hosts that embed the app (the After Effects CEP panel)
-J.uiApi = { toast, replan, syncUI, pause, seek, flushSave, loadAudioFile, restartPreview, exportRange, exportRangeLines };
+J.uiApi = { toast, replan, syncUI, pause, seek, flushSave, loadAudioFile, loadSrt, restartPreview, exportRange, exportRangeLines };
 })();
