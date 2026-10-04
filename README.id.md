@@ -2,7 +2,7 @@
 
 Buat video lirik bergerak langsung di browser. JIZURA menggabungkan layout, animasi masuk, gerakan saat teks bertahan, animasi keluar, dekorasi, efek teks, latar, gerakan kamera, efek, dan transisi. Ganti seed atau tekan **Buat variasi** untuk mencoba susunan lain.
 
-**[Buka aplikasi Bahasa Indonesia](https://852wa.github.io/JIZURA/id/)** · [Tiếng Việt](https://852wa.github.io/JIZURA/vi/) · [日本語](README.md) · [English](README.en.md) · [繁體中文](https://852wa.github.io/JIZURA/zh-hant/) · [简体中文](https://852wa.github.io/JIZURA/zh-hans/) · [한국어](https://852wa.github.io/JIZURA/ko/)
+**[Buka aplikasi Bahasa Indonesia](https://takashige2026.github.io/synthia-lyrics-studio/id/)** · [Tiếng Việt](https://takashige2026.github.io/synthia-lyrics-studio/vi/) · [日本語](README.md) · [English](README.en.md) · [繁體中文](https://takashige2026.github.io/synthia-lyrics-studio/zh-hant/) · [简体中文](https://takashige2026.github.io/synthia-lyrics-studio/zh-hans/) · [한국어](https://takashige2026.github.io/synthia-lyrics-studio/ko/)
 
 Edisi Indonesia dan Jepang memakai format proyek serta data browser yang sama. Gunakan menu bahasa di bagian atas editor untuk berpindah edisi tanpa mengubah lirik atau pengaturan.
 

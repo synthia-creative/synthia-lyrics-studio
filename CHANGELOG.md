@@ -1,3 +1,28 @@
+# SYNTHIA Custom Changelog
+
+## SYNTHIA Custom v0.1.0
+
+### Added
+- ブランド・公開URLを管理する site.config.json と CUSTOM_VERSION
+- シアンを中心にした Dark Creative Studio UI
+- GitHub Pages のビルド・検査・配信ワークフロー
+- カスタマイズ、公開、上流更新の手順書
+
+### Changed
+- 各言語のタイトル、ヘッダー、canonical、OG、hreflang、サイトマップ
+- 入力パネルの順番を音源、歌詞（LRC）、行とカットへ変更
+- アイコンの未配置404をインラインSVGで解消
+
+### Preserved
+- JIZURA v0.10.1 の全 src/ エンジンと保存形式
+- ブラウザ内の音源・歌詞・動画処理、MP4・PNG・LRC出力
+- かんたん・詳細・スマホの各モード、AE/CEP関連ファイル
+- LICENSE、THIRD_PARTY_NOTICES.md、vendor/ の内容
+
+---
+
+以下は上流プロジェクトの変更履歴です。
+
 # 変更の記録（CHANGELOG）
 
 JIZURA のバージョンは `メジャー.マイナー.パッチ` の形で付けます。
