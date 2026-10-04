@@ -1,17 +1,27 @@
 :root {
   color-scheme: dark;
-  --ink: #0c0c0e;
-  --panel: #131316;
-  --raised: #1b1b20;
-  --raised2: #232329;
-  --line: #2a2a31;
-  --line2: #383840;
-  --text: #ece7e1;
-  --muted: #8e8a94;
-  --faint: #5d5a63;
-  --amber: #f5a50c;
-  --cyan: #16f4d4;
-  --rose: #ff6f9c;
+  --bg-main: #0b0d12;
+  --bg-panel: #131722;
+  --bg-panel-2: #191f2b;
+  --text-main: #f5f7fb;
+  --text-sub: #9fa8bb;
+  --accent-cyan: #00d9ff;
+  --accent-blue: #3b82f6;
+  --accent-purple: #8b5cf6;
+  --accent-magenta: #ec4899;
+  --border: #293140;
+  --ink: var(--bg-main);
+  --panel: var(--bg-panel);
+  --raised: var(--bg-panel-2);
+  --raised2: #232d3e;
+  --line: var(--border);
+  --line2: #3b475e;
+  --text: var(--text-main);
+  --muted: var(--text-sub);
+  --faint: #738099;
+  --amber: var(--accent-cyan);
+  --cyan: #62e4ed;
+  --rose: var(--accent-magenta);
   --danger: #ff5a6a;
   --ui: "IBM Plex Sans JP", "Noto Sans JP", "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
   --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
@@ -31,7 +41,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 /* ---------- top bar ---------- */
 .bar { display: flex; align-items: center; gap: 16px; padding-block: 10px; padding-inline: 16px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
 .brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
-.brand .mark { font: 900 26px/1 var(--brand); letter-spacing: 0.02em; color: var(--text); text-shadow: -2px -1px 0 rgba(22,244,212,0.85), 2px 1px 0 rgba(245,165,12,0.9); }
+.brand .mark { font: 900 26px/1 var(--brand); letter-spacing: 0.02em; color: var(--text); text-shadow: -2px -1px 0 rgba(22,244,212,0.85), 2px 1px 0 rgba(0,217,255,0.9); }
 .brand .word { font: 600 12px/1 var(--mono); letter-spacing: 0.34em; color: var(--text); }
 .brand .tag { font: 400 11px/1 var(--mono); color: var(--muted); letter-spacing: 0.08em; }
 .brand .ver { font: 400 10px/1 var(--mono); color: var(--muted); opacity: 0.8; margin-left: 6px; letter-spacing: 0.04em; }
@@ -66,9 +76,9 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 button.small { padding: 3px 8px; font-size: 12px; }
 button.ghost { background: transparent; border-color: var(--line); }
 button.primary { background: var(--amber); color: #120c00; border-color: var(--amber); font-weight: 700; }
-button.primary:hover { background: #ffb52a; }
+button.primary:hover { background: #60e8ff; }
 button.accent { border-color: var(--amber); color: var(--amber); background: transparent; }
-button.accent:hover { background: rgba(245,165,12,0.1); }
+button.accent:hover { background: rgba(0,217,255,0.1); }
 button[aria-pressed=true] { border-color: var(--cyan); color: var(--cyan); }
 button.icon { padding: 4px 6px; line-height: 0; }
 button.icon svg { width: 15px; height: 15px; }
@@ -98,11 +108,11 @@ h3 { font-size: 11px; letter-spacing: 0.14em; color: var(--muted); margin-top: 1
 .fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .field { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--muted); }
 .field input, .field select { width: 100%; }
-.tapbox { border: 1px solid var(--amber); border-radius: var(--r); padding: 10px; display: grid; gap: 8px; background: rgba(245,165,12,0.06); }
+.tapbox { border: 1px solid var(--amber); border-radius: var(--r); padding: 10px; display: grid; gap: 8px; background: rgba(0,217,255,0.06); }
 .tapbox .next { font-size: 15px; }
 button.tap { font: 700 18px/1 var(--mono); letter-spacing: 0.2em; padding: 16px; background: var(--amber); color: #120c00; border-color: var(--amber); }
 /* タップ同期中は行一覧の自動スクロールで押せなくなるので、左カラムの先頭に貼り付けて固定する */
-.col-left > #tapPanel { position: sticky; top: 0; z-index: 20; margin: 10px 12px; background-color: var(--panel); background-image: linear-gradient(rgba(245,165,12,0.10), rgba(245,165,12,0.10)); box-shadow: 0 10px 24px rgba(0,0,0,0.5); }
+.col-left > #tapPanel { position: sticky; top: 0; z-index: 20; margin: 10px 12px; background-color: var(--panel); background-image: linear-gradient(rgba(0,217,255,0.10), rgba(0,217,255,0.10)); box-shadow: 0 10px 24px rgba(0,0,0,0.5); }
 .tapbox.compact .hint { display: none; }
 .tapbox .tap-opts { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
 .tapbox .tap-opts label { display: inline-flex; gap: 6px; align-items: center; }
@@ -178,7 +188,7 @@ button.chip[aria-pressed=true] { border-color: var(--cyan); color: var(--cyan); 
 .cut-pick .tcard canvas { width: 100%; aspect-ratio: 16 / 9; display: block; background: #0c0c0e; }
 .chip { font-size: 11px; padding: 2px 8px; border-radius: 2px; border: 1px solid var(--line2); color: var(--text); background: var(--raised); }
 .chip b { font-weight: 500; color: var(--muted); margin-right: 5px; }
-.chip.l { border-color: rgba(245,165,12,0.6); }
+.chip.l { border-color: rgba(0,217,255,0.6); }
 .chip.e { border-color: rgba(22,244,212,0.55); }
 .chip.x { border-color: rgba(255,111,156,0.6); }
 .chip.h { border-color: #55525c; }
@@ -440,3 +450,22 @@ button.small.primary { padding: 4px 12px; }
 /* layout menus are filled on first use: keep their width fixed so nothing jumps */
 .ln .cuts select.cut-lay { width: 112px; }
 .ln .tools select.lay { width: 112px; }
+
+/* SYNTHIA: 操作画面の配色とブランドだけを調整。動画内のスタイルは元のまま。 */
+.brand { gap: 8px; flex-wrap: wrap; }
+.brand .mark { font: 700 17px/1.2 var(--ui); letter-spacing: .09em; color: var(--accent-cyan); text-shadow: none; }
+.brand .word { font: 500 13px/1.2 var(--ui); letter-spacing: .02em; }
+.brand .ver { font-size: 10px; margin-left: 0; opacity: 1; }
+button.primary { color: #07131a; }
+button.primary:hover { background: #60e8ff; }
+.easy-hero .omakase { color: #07131a; text-shadow: none; }
+button:hover { border-color: #64748b; }
+.viewport { border-color: var(--border); }
+.col-left .sec-h h2 { color: var(--text-sub); }
+#audioFile { cursor: pointer; }
+#app.is-mobile .brand .mark { font-size: 16px; }
+#app.is-mobile .brand .ver { display: none; }
+@media (max-width: 760px) {
+  .brand .word { font-size: 12px; }
+  .bar { gap: 8px; }
+}
