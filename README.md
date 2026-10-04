@@ -6,7 +6,7 @@ JIZURAをベースにカスタマイズした、個人向けリリックモー�
 GitHub: https://github.com/takashige2026/synthia-lyrics-studio
 2026-10-04にGitHub Pagesで公開し、公開版のChrome・Edgeで主要機能を確認しました。[公開結果](docs/PUBLICATION.md)と[動作確認](docs/QA.md)を参照してください。
 
-Base: JIZURA v0.10.1 / Custom: SYNTHIA Lyrics Studio v0.2.0
+Base: JIZURA v0.10.1 / Custom: SYNTHIA Lyrics Studio v0.3.0
 
 ## 作業用背景・SRT
 
@@ -55,3 +55,7 @@ Google Fontsは元の仕組みで必要な書体だけ取得します。
 - [確認結果](docs/QA.md)
 
 AE版はPhase 2対象です。ファイルを維持していますが、SYNTHIAへの名称変更やAE内での動作確認は行っていません。
+
+## 完成MP4（v0.3.0）
+
+背景画像・動画を選択し、書き出し欄の「完成動画MP4を書き出す」でリリックと合成します。通常MP4・PNGは引き続き素材背景を含めません。長い動画は完成動画の「ファイルに直接保存」を使えます。動画内の音声は使わず、読み込んだ楽曲だけをAACで出力します。詳細は docs/COMPLETE_MP4.md を参照してください。

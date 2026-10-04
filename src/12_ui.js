@@ -1415,7 +1415,7 @@ async function codecNote() {
   ['btnMP4File', 'eMP4File'].forEach(id => { $(id).hidden = !vc || !canPickFile(); });
   if (!vc) $('eMP4').title = 'このブラウザは MP4 書き出しに対応していません（Chrome / Edge 推奨）';
 }
-const EXP_BTNS = ['btnMP4', 'btnPNG', 'btnPNGA', 'btnPNGL', 'eMP4', 'btnMP4File', 'eMP4File', 'ePNG', 'ePNGA', 'ePNGL'];
+const EXP_BTNS = ['btnCompleteMP4', 'btnCompleteMP4File', 'eCompleteMP4', 'eCompleteMP4File', 'btnMP4', 'btnPNG', 'btnPNGA', 'btnPNGL', 'eMP4', 'btnMP4File', 'eMP4File', 'ePNG', 'ePNGA', 'ePNGL'];
 function baseName() {
   const k = J.keyMode(S.project);
   return ((S.project.title || 'jizura').replace(/[\\/:*?"<>|]+/g, '_').slice(0, 60) || 'jizura') + (k ? (k === 'green' ? '_greenback' : '_blackback') : '');
@@ -1423,16 +1423,19 @@ function baseName() {
 const canPickFile = () => typeof window.showSaveFilePicker === 'function' && !document.documentElement.classList.contains('cep') && typeof VideoEncoder !== 'undefined';
 async function runExport(kind) {
   if (S.exporting) return;
+  const complete = kind === 'complete' || kind === 'completefile';
+  if (complete && !J.workBackground.state.media) { toast('背景素材を選択してください'); return; }
+  const completeName = complete ? J.completeFileName(S.project) : null;
   // 大きな動画用: the save dialog must open straight from the click (before anything is awaited)
   let file = null, fileName = '';
-  if (kind === 'mp4file') {
+  if (kind === 'mp4file' || kind === 'completefile') {
     try {
-      const hnd = await window.showSaveFilePicker({ suggestedName: baseName() + rangeSuffix() + '.mp4', types: [{ description: 'MP4', accept: { 'video/mp4': ['.mp4'] } }] });
+      const hnd = await window.showSaveFilePicker({ suggestedName: completeName || baseName() + rangeSuffix() + '.mp4', types: [{ description: 'MP4', accept: { 'video/mp4': ['.mp4'] } }] });
       file = await hnd.createWritable(); fileName = hnd.name;
     } catch (e) { if (e && e.name === 'AbortError') return; toast('保存先を開けませんでした: ' + (e && e.message ? e.message : e)); return; }
   }
   pause();
-  const ac = new AbortController(); S.exporting = ac;
+  const ac = new AbortController(); S.exporting = ac; J.workBackground?.setExporting(true);
   const boxes = [...document.querySelectorAll('.exp-box')];
   const setText = m => boxes.forEach(b => { b.querySelector('.exp-text').textContent = m; });
   const txt = { set textContent(m) { setText(m); }, get textContent() { return boxes[0].querySelector('.exp-text').textContent; } };
@@ -1451,13 +1454,14 @@ async function runExport(kind) {
     await J.ensureFonts(S.project.lyrics + (S.project.title || '') + (S.project.artist || '') + HUD_CHARS, J.fontsOfPlan(S.plan));
     const lost = J.missingUserFonts(J.fontsOfPlan(S.plan).concat(Object.values(S.project.fonts || {})));
     if (lost.length) throw new Error(`読み込んだ書体（${[...new Set(lost)].join('・')}）がこのブラウザにないため、書き出しを止めました。「フォント」から同じファイルを読み込み直すか、別の書体を選んでください`);
-    if (kind === 'mp4' || kind === 'mp4file') {
+    if (kind === 'mp4' || kind === 'mp4file' || complete) {
       const plan = S.plan, range = exportRange(), span = J.exportSpan(plan, range);
-      const r = await J.exportMP4({ plan, project: proj, audio: S.project.includeAudio !== false ? S.audio : null, quality: S.project.quality || 'high', onProgress, signal: ac.signal, range, file });
+      const exporter = complete ? J.exportCompleteMP4 : J.exportMP4;
+      const r = await exporter({ plan, project: proj, audio: S.project.includeAudio !== false ? S.audio : null, quality: S.project.quality || 'high', onProgress, signal: ac.signal, range, file, ...(complete ? { media: J.workBackground.state.media, background: J.workBackground.getSettings() } : {}) });
       file = null;
       txt.textContent = `完成 ${r.blob ? (r.blob.size / 1048576).toFixed(1) + 'MB・' : ''}${r.codec}${r.audio ? ' + ' + r.audio.toUpperCase() : ''}・${((performance.now() - t0) / 1000).toFixed(0)}秒`;
       if (r.blob) {
-        const name = baseName() + rangeSuffix() + '.mp4';
+        const name = completeName || baseName() + rangeSuffix() + '.mp4';
         const res = await J.saveFile(name, r.blob);
         if (res === 'declined') txt.textContent += '（保存はキャンセルされました）';
         offerShare(boxes, r.blob, name);
@@ -1478,7 +1482,7 @@ async function runExport(kind) {
     console.error(e);
     if (file) { try { await file.abort(); } catch (e2) {} }
   } finally {
-    S.exporting = null; S.need = true;
+    S.exporting = null; S.need = true; J.workBackground?.setExporting(false);
     EXP_BTNS.forEach(id => { $(id).disabled = false; });
     try { if (wake) await wake.release(); } catch (e) {}
     codecNote();
@@ -1757,6 +1761,8 @@ function bind() {
     toast(e.target.checked ? `中央を空けました：文字と演出を${tall ? '上下' : '左右'}に置きます` : '中央を空けるのをやめました');
   }));
   $('btnMP4').addEventListener('click', () => runExport('mp4'));
+  ['btnCompleteMP4','eCompleteMP4'].forEach(id => $(id).addEventListener('click', () => runExport('complete')));
+  ['btnCompleteMP4File','eCompleteMP4File'].forEach(id => $(id).addEventListener('click', () => runExport('completefile')));
   ['btnMP4File', 'eMP4File'].forEach(id => $(id).addEventListener('click', () => runExport('mp4file')));
   $('btnPNG').addEventListener('click', () => runExport('png'));
   $('btnPNGA').addEventListener('click', () => runExport('pnga'));

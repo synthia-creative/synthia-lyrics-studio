@@ -510,6 +510,13 @@ button:hover { border-color: #64748b; }
 .srt-import .sec-btns { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
 .srt-import .sec-btns > * { flex: 0 0 auto; white-space: nowrap; }
 
+/* SYNTHIA completed-video controls */
+#wbAdvanced { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+#wbAdvanced input, #wbAdvanced select { min-width: 0; width: 100%; }
+.complete-output { flex-wrap: wrap; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.complete-help { flex-basis: 100%; font-size: 11px; margin: 0; }
+@media(max-width:420px) { #wbAdvanced { grid-template-columns: 1fr; } }
+
 </style>
 </head>
 <body>
@@ -524,7 +531,7 @@ button:hover { border-color: #64748b; }
 </div>
 <div id="app">
   <header class="bar">
-    <div class="brand" aria-label="SYNTHIA Lyrics Studio"><span class="mark">SYNTHIA</span><span class="word">Lyrics Studio</span><span class="ver" title="Base: JIZURA v0.10.1">v0.2.0</span></div>
+    <div class="brand" aria-label="SYNTHIA Lyrics Studio"><span class="mark">SYNTHIA</span><span class="word">Lyrics Studio</span><span class="ver" title="Base: JIZURA v0.10.1">v0.3.0</span></div>
     <div class="proj">
       <input id="songTitle" type="text" placeholder="歌名（顯示在標題卡與 HUD）" aria-label="歌名">
       <input id="songArtist" type="text" placeholder="演唱者" aria-label="演唱者">
@@ -35893,6 +35900,250 @@ J.randomOk = (project, g, k) => {
 };
 })();
 
+/* SYNTHIA background composition, independently implemented.
+   Mediabunny 1.61.1 is used unmodified under MPL-2.0; see THIRD_PARTY_NOTICES.md. */
+(() => {
+'use strict';
+const number = (v, d, lo, hi) => typeof v === 'number' && Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d;
+const normalize = v => ({
+  enabled: v?.enabled === true, fit: v?.fit === 'contain' ? 'contain' : 'cover',
+  opacity: number(v?.opacity, 1, 0, 1), scale: number(v?.scale, 1, .1, 10),
+  x: number(v?.x, 0, -2, 2), y: number(v?.y, 0, -2, 2),
+  mediaStart: number(v?.mediaStart, 0, 0, 86400), timelineStart: number(v?.timelineStart, 0, 0, 86400),
+  endMode: ['hold', 'loop', 'black'].includes(v?.endMode) ? v.endMode : 'hold',
+});
+function timeAt(t, config, duration = Infinity) {
+  if (t < config.timelineStart) return null;
+  const elapsed = t - config.timelineStart, start = config.mediaStart;
+  if (!Number.isFinite(duration)) return elapsed + start;
+  if (start >= duration) return config.endMode === 'hold' ? Infinity : null;
+  if (config.endMode === 'loop') return start + (elapsed % (duration - start));
+  const target = start + elapsed;
+  return target < duration ? target : config.endMode === 'hold' ? Infinity : null;
+}
+function paint(ctx, source, config) {
+  if (!source) return;
+  const w = ctx.canvas.width, h = ctx.canvas.height;
+  const sw = source.videoWidth || source.naturalWidth || source.width, sh = source.videoHeight || source.naturalHeight || source.height;
+  const ratio = (config.fit === 'cover' ? Math.max : Math.min)(w / sw, h / sh) * config.scale;
+  const dw = sw * ratio, dh = sh * ratio;
+  ctx.save(); ctx.globalAlpha = config.opacity;
+  ctx.drawImage(source, (w - dw) / 2 + config.x * w, (h - dh) / 2 + config.y * h, dw, dh);
+  ctx.restore();
+}
+let library;
+async function getLibrary() {
+  // Local vendored module; media bytes never go to a remote service.
+  if (!library) {
+    const prefix = document.documentElement.lang === 'ja' ? './' : '../';
+    library = import(new URL(prefix + 'vendor/mediabunny.min.mjs', location.href).href).catch(e => { library = null; throw e; });
+  }
+  return library;
+}
+const cancelled = () => new DOMException('キャンセルしました', 'AbortError');
+class BackgroundReader {
+  constructor(signal) { this.signal = signal; this.abort = () => this.dispose(); }
+  dispose() { if (!this.disposed) { this.disposed = true; this.input?.dispose(); } }
+  async wait(promise) {
+    let timer, abort;
+    try {
+      if (this.signal?.aborted) throw cancelled();
+      return await Promise.race([promise, new Promise((_, reject) => {
+        abort = () => reject(cancelled()); this.signal?.addEventListener('abort', abort, { once: true });
+        timer = setTimeout(() => { this.dispose(); reject(new Error('背景動画のデコードがタイムアウトしました')); }, 30000);
+      })]);
+    } finally { clearTimeout(timer); this.signal?.removeEventListener('abort', abort); }
+  }
+  static async create(media, config, span, fps, total, signal) {
+    const r = new BackgroundReader(signal); r.media = media; r.config = config;
+    try {
+      if (!media?.file || media.disposed) throw new Error('背景素材を選択し直してください');
+      if (!media.video) {
+        // A separate bitmap survives preview changes and blob URL release.
+        r.image = await r.wait(createImageBitmap(media.file)); return r;
+      }
+      if (typeof VideoDecoder === 'undefined') throw new Error('動画背景の出力にはChrome / EdgeのVideoDecoderが必要です');
+      const MB = await r.wait(getLibrary());
+      r.input = new MB.Input({ source: new MB.BlobSource(media.file), formats: MB.ALL_FORMATS });
+      signal?.addEventListener('abort', r.abort, { once: true });
+      const track = await r.wait(r.input.getPrimaryVideoTrack());
+      if (!track || !await r.wait(track.canDecode())) throw new Error('背景動画の映像コーデックをデコードできません');
+      const last = await r.wait(new MB.EncodedPacketSink(track).getPacket(Infinity, { metadataOnly: true }));
+      r.duration = await r.wait(track.computeDuration());
+      if (!last || !Number.isFinite(last.timestamp) || !Number.isFinite(r.duration) || r.duration <= 0) throw new Error('背景動画の長さを取得できません');
+      r.lastTimestamp = last.timestamp;
+      function* timestamps() {
+        for (let i = 0; i < total; i++) {
+          const target = timeAt(span.t0 + i / fps, config, r.duration);
+          if (target !== null) yield target === Infinity ? r.lastTimestamp : target;
+        }
+      }
+      r.iterator = new MB.CanvasSink(track, { poolSize: 2, alpha: true }).canvasesAtTimestamps(timestamps());
+      return r;
+    } catch (e) { await r.close(); throw e; }
+  }
+  async draw(ctx, t) {
+    if (this.signal?.aborted) throw cancelled();
+    if (this.image) { if (timeAt(t, this.config) !== null) paint(ctx, this.image, this.config); return null; }
+    const target = timeAt(t, this.config, this.duration);
+    if (target === null) return null;
+    const result = await this.wait(this.iterator.next());
+    if (result.done) throw new Error('背景動画のフレームが不足しています');
+    if (result.value) paint(ctx, result.value.canvas, this.config);
+    return result.value ? { requested: target === Infinity ? this.lastTimestamp : target, timestamp: result.value.timestamp, duration: result.value.duration } : null;
+  }
+  async close() {
+    this.signal?.removeEventListener('abort', this.abort); this.dispose(); this.image?.close();
+    if (this.iterator) await Promise.allSettled([this.iterator.return()]);
+  }
+}
+async function probeVideo(file, signal) {
+  const reader = new BackgroundReader(signal);
+  try {
+    const MB = await reader.wait(getLibrary());
+    reader.input = new MB.Input({ source: new MB.BlobSource(file), formats: MB.ALL_FORMATS });
+    signal?.addEventListener('abort', reader.abort, { once: true });
+    const track = await reader.wait(reader.input.getPrimaryVideoTrack());
+    if (!track) throw new Error('映像トラックがありません');
+    const duration = await reader.wait(track.computeDuration());
+    const firstTimestamp = await reader.wait(track.getFirstTimestamp());
+    const last = await reader.wait(new MB.EncodedPacketSink(track).getPacket(Infinity, { metadataOnly: true }));
+    if (!Number.isFinite(duration) || duration <= 0 || !last) throw new Error('映像時刻を取得できません');
+    return { duration, firstTimestamp, lastTimestamp: last.timestamp };
+  } finally { await reader.close(); }
+}
+J.finalBackground = { normalize, timeAt, paint, BackgroundReader, probeVideo };
+})();
+
+/* SYNTHIA completed MP4: fixed timeline frames + H.264/AAC + mp4-muxer.
+   Existing lyric-only export remains in src/11_export.js. */
+(() => {
+'use strict';
+const fail = signal => { if (signal?.aborted) throw new DOMException('キャンセルしました', 'AbortError'); };
+const yieldTask = () => new Promise(resolve => setTimeout(resolve, 0));
+class BlockStore {
+  constructor() { this.blocks = []; this.end = 0; }
+  write(data, position) {
+    const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+    if (position > this.end) { this.blocks.push({ position: this.end, bytes: new Uint8Array(position - this.end) }); this.end = position; }
+    for (const b of this.blocks) {
+      const lo = Math.max(position, b.position), hi = Math.min(position + bytes.length, b.position + b.bytes.length);
+      if (hi > lo) b.bytes.set(bytes.subarray(lo - position, hi - position), lo - b.position);
+    }
+    if (position + bytes.length > this.end) { const offset = Math.max(0, this.end - position); this.blocks.push({ position: this.end, bytes: bytes.slice(offset) }); this.end = position + bytes.length; }
+  }
+  blob() { return new Blob(this.blocks.map(b => b.bytes), { type: 'video/mp4' }); }
+}
+function seeded(seed, fn) { const old = Math.random; Math.random = J.rng(seed); try { return fn(); } finally { Math.random = old; } }
+J.completeFileName = project => ((String(project.title || 'SYNTHIA').replace(/[\\/:*?"<>|\x00-\x1f]+/g, '_').replace(/[. ]+$/g, '').slice(0, 100) || 'SYNTHIA') + '.mp4');
+async function audioChunks(buffer, span, duration, muxer, signal, onProgress) {
+  const sr = 48000, channels = Math.min(2, buffer.numberOfChannels), frames = Math.round(duration * sr);
+  const cfg = { codec: 'mp4a.40.2', sampleRate: sr, numberOfChannels: channels, bitrate: 192000 };
+  let error, chunks = 0;
+  const encoder = new AudioEncoder({ output: (chunk, meta) => { try { muxer.addAudioChunk(chunk, meta); chunks++; } catch (e) { error = e; } }, error: e => { error = e; } });
+  try {
+    encoder.configure(cfg);
+    // Bounded 20-second resampling windows; timestamps use absolute output sample indices.
+    for (let offset = 0; offset < frames; offset += sr * 20) {
+      fail(signal); if (error) throw error;
+      const count = Math.min(sr * 20, frames - offset), offline = new OfflineAudioContext(channels, count, sr);
+      const sourceTime = span.t0 + offset / sr;
+      if (sourceTime < buffer.duration) { const source = offline.createBufferSource(); source.buffer = buffer; source.connect(offline.destination); source.start(0, Math.max(0, sourceTime)); source.stop(Math.max(0, Math.min(count / sr, span.dur - offset / sr))); }
+      const pcm = await offline.startRendering();
+      for (let n = 0; n < count; n += 4800) {
+        fail(signal); if (error) throw error;
+        const length = Math.min(4800, count - n), data = new Float32Array(length * channels);
+        for (let c = 0; c < channels; c++) data.set(pcm.getChannelData(c).subarray(n, n + length), c * length);
+        const block = new AudioData({ format: 'f32-planar', sampleRate: sr, numberOfFrames: length, numberOfChannels: channels, timestamp: Math.round((offset + n) * 1e6 / sr), data });
+        try { encoder.encode(block); } finally { block.close(); }
+        let waits = 0;
+        while (encoder.encodeQueueSize > 8) { fail(signal); if (error) throw error; await yieldTask(); if (!document.hidden && ++waits > 30000) throw new Error('音声エンコーダーが応答しません'); }
+      }
+      onProgress?.(.9 + .09 * (offset + count) / frames, '楽曲をAACでエンコード中'); await yieldTask();
+    }
+    await encoder.flush(); if (error) throw error; if (!chunks) throw new Error('AAC音声が出力されませんでした');
+  } finally { if (encoder.state !== 'closed') encoder.close(); }
+}
+async function encode(o, vc) {
+  const { plan, project, media, range, file, signal, onProgress } = o;
+  const [w, h] = J.outputSize(project), fps = plan.fps, span = J.exportSpan(plan, range);
+  const total = Math.max(1, Math.ceil(span.dur * fps - 1e-8)), duration = total / fps;
+  const config = J.finalBackground.normalize(o.background);
+  const audio = project.includeAudio !== false ? o.audio?.buffer : null;
+  const store = file ? null : new BlockStore();
+  const target = file ? new Mp4Muxer.FileSystemWritableFileStreamTarget(file, { chunkSize: 8 * 1048576 }) : new Mp4Muxer.StreamTarget({ onData: (data, pos) => store.write(data, pos), chunked: true, chunkSize: 8 * 1048576 });
+  const options = { target, video: { codec: 'avc', width: w, height: h, frameRate: fps }, fastStart: false, firstTimestampBehavior: 'strict' };
+  if (audio) options.audio = { codec: 'aac', numberOfChannels: Math.min(2, audio.numberOfChannels), sampleRate: 48000 };
+  const muxer = new Mp4Muxer.Muxer(options);
+  let reader, encoder, error, returned = 0;
+  const previousRes = J.glyphs.maxRes;
+  try {
+    fail(signal);
+    reader = await J.finalBackground.BackgroundReader.create(media, config, span, fps, total, signal);
+    const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const lyrics = document.createElement('canvas'); lyrics.width = w; lyrics.height = h;
+    const lyricCtx = lyrics.getContext('2d');
+    const renderer = seeded(J.h(project.seed || 0, 117), () => new J.Renderer());
+    J.glyphs.maxRes = h >= 1000 ? 768 : 512;
+    encoder = new VideoEncoder({ output: (chunk, meta) => { try { muxer.addVideoChunk(chunk, meta); returned++; } catch (e) { error = e; } }, error: e => { error = e; } });
+    encoder.configure({ ...vc.cfg, latencyMode: 'quality' });
+    for (let i = 0; i < total; i++) {
+      fail(signal); if (error) throw error;
+      const t = span.t0 + i / fps;
+      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
+      const decoded = await reader.draw(ctx, t);
+      // Renderer draws motion first, then its title/HUD overlays. No preview canvas or guides.
+      seeded(J.h(project.seed || 0, Math.round(t * 1e6), 118), () => renderer.frame(lyricCtx, plan, t, { transparent: true, scale: w / plan.W }));
+      ctx.drawImage(lyrics, 0, 0);
+      const timestamp = Math.round(i * 1e6 / fps), end = Math.round((i + 1) * 1e6 / fps);
+      o.onFrame?.({ index: i, timeline: t, timestamp, decoded }, canvas);
+      const frame = new VideoFrame(canvas, { timestamp, duration: end - timestamp });
+      try { encoder.encode(frame, { keyFrame: i % Math.round(fps * 2) === 0 }); } finally { frame.close(); }
+      let waits = 0;
+      while (encoder.encodeQueueSize > 4) { fail(signal); if (error) throw error; await yieldTask(); if (!document.hidden && ++waits > 30000) throw new Error('動画エンコーダーが応答しません'); }
+      if (i % 3 === 0) { onProgress?.(.9 * (i + 1) / total, `完成動画 フレーム ${i + 1}/${total}`); await yieldTask(); }
+    }
+    await encoder.flush(); fail(signal); if (error) throw error;
+    if (returned !== total) throw new Error(`動画フレーム数が一致しません (${returned}/${total})`);
+    if (audio) await audioChunks(audio, span, duration, muxer, signal, onProgress);
+    fail(signal); muxer.finalize();
+    if (file) await file.close();
+    onProgress?.(1, '完成動画を書き出しました');
+    return { blob: store?.blob() || null, width: w, height: h, fps, frames: total, duration, codec: vc.label, audio: audio ? 'aac' : null, audioWanted: !!audio, toFile: !!file };
+  } finally {
+    if (encoder && encoder.state !== 'closed') encoder.close();
+    J.glyphs.maxRes = previousRes; await reader?.close();
+  }
+}
+J.exportCompleteMP4 = async o => {
+  // Freeze this job's inputs while the editor remains visible. No preview changes affect export.
+  o = { ...o, project: structuredClone(o.project), background: J.finalBackground.normalize(o.background),
+    media: o.media ? { file: o.media.file, video: o.media.video, disposed: o.media.disposed } : null,
+    range: o.range ? { ...o.range } : null };
+  const [w, h] = J.outputSize(o.project), fps = o.plan.fps;
+  if (!o.media?.file || o.media.disposed) throw new Error('画像または動画の背景素材を選択してください');
+  if (o.project.includeAudio !== false && !o.audio?.buffer && o.project.audioName) throw new Error('楽曲を読み込み直してください。完成MP4は背景動画内の音声を使用しません');
+  if (o.project.includeAudio !== false && o.audio?.buffer) {
+    if (typeof AudioEncoder === 'undefined' || !(await AudioEncoder.isConfigSupported({ codec: 'mp4a.40.2', sampleRate: 48000, numberOfChannels: Math.min(2, o.audio.buffer.numberOfChannels), bitrate: 192000 })).supported) throw new Error('このブラウザではAAC音声を書き出せません。Chrome / Edgeを使用してください');
+  }
+  const attempts = (await J.videoAttempts(w, h, fps, J.videoBitrate(w, h, fps, o.quality || 'high'))).filter(c => c.mux === 'avc');
+  if (!attempts.length) throw new Error('この解像度・fpsのH.264出力に対応していません。解像度またはfpsを下げてください');
+  const tried = [];
+  for (const vc of attempts) {
+    fail(o.signal);
+    try {
+      if (o.file && tried.length) { await o.file.seek(0); await o.file.truncate(0); }
+      const result = await encode(o, vc); result.tried = tried; return result;
+    } catch (e) {
+      fail(o.signal); tried.push(e.message || String(e));
+      if (e.name === 'AbortError') throw e;
+    }
+  }
+  throw new Error('完成MP4を書き出せませんでした: ' + [...new Set(tried)].join(' / '));
+};
+})();
+
 /* English labels are applied after all expression packs register, before the editor starts.
    Internal IDs and project JSON remain language independent. */
 (() => {
@@ -37780,7 +38031,7 @@ async function codecNote() {
   ['btnMP4File', 'eMP4File'].forEach(id => { $(id).hidden = !vc || !canPickFile(); });
   if (!vc) $('eMP4').title = '這個瀏覽器不支援匯出 MP4（建議使用 Chrome / Edge）';
 }
-const EXP_BTNS = ['btnMP4', 'btnPNG', 'btnPNGA', 'btnPNGL', 'eMP4', 'btnMP4File', 'eMP4File', 'ePNG', 'ePNGA', 'ePNGL'];
+const EXP_BTNS = ['btnCompleteMP4', 'btnCompleteMP4File', 'eCompleteMP4', 'eCompleteMP4File', 'btnMP4', 'btnPNG', 'btnPNGA', 'btnPNGL', 'eMP4', 'btnMP4File', 'eMP4File', 'ePNG', 'ePNGA', 'ePNGL'];
 function baseName() {
   const k = J.keyMode(S.project);
   return ((S.project.title || 'jizura').replace(/[\\/:*?"<>|]+/g, '_').slice(0, 60) || 'jizura') + (k ? (k === 'green' ? '_greenback' : '_blackback') : '');
@@ -37788,16 +38039,19 @@ function baseName() {
 const canPickFile = () => typeof window.showSaveFilePicker === 'function' && !document.documentElement.classList.contains('cep') && typeof VideoEncoder !== 'undefined';
 async function runExport(kind) {
   if (S.exporting) return;
+  const complete = kind === 'complete' || kind === 'completefile';
+  if (complete && !J.workBackground.state.media) { toast('背景素材を選択してください'); return; }
+  const completeName = complete ? J.completeFileName(S.project) : null;
   // 大きな動画用: the save dialog must open straight from the click (before anything is awaited)
   let file = null, fileName = '';
-  if (kind === 'mp4file') {
+  if (kind === 'mp4file' || kind === 'completefile') {
     try {
-      const hnd = await window.showSaveFilePicker({ suggestedName: baseName() + rangeSuffix() + '.mp4', types: [{ description: 'MP4', accept: { 'video/mp4': ['.mp4'] } }] });
+      const hnd = await window.showSaveFilePicker({ suggestedName: completeName || baseName() + rangeSuffix() + '.mp4', types: [{ description: 'MP4', accept: { 'video/mp4': ['.mp4'] } }] });
       file = await hnd.createWritable(); fileName = hnd.name;
     } catch (e) { if (e && e.name === 'AbortError') return; toast('無法開啟儲存位置：' + (e && e.message ? e.message : e)); return; }
   }
   pause();
-  const ac = new AbortController(); S.exporting = ac;
+  const ac = new AbortController(); S.exporting = ac; J.workBackground?.setExporting(true);
   const boxes = [...document.querySelectorAll('.exp-box')];
   const setText = m => boxes.forEach(b => { b.querySelector('.exp-text').textContent = m; });
   const txt = { set textContent(m) { setText(m); }, get textContent() { return boxes[0].querySelector('.exp-text').textContent; } };
@@ -37816,13 +38070,14 @@ async function runExport(kind) {
     await J.ensureFonts(S.project.lyrics + (S.project.title || '') + (S.project.artist || '') + HUD_CHARS, J.fontsOfPlan(S.plan));
     const lost = J.missingUserFonts(J.fontsOfPlan(S.plan).concat(Object.values(S.project.fonts || {})));
     if (lost.length) throw new Error(`匯入的字型（${[...new Set(lost)].join('、')}）不在此瀏覽器中，已停止輸出。請在「字型」重新匯入同一個檔案，或選擇其他字型`);
-    if (kind === 'mp4' || kind === 'mp4file') {
+    if (kind === 'mp4' || kind === 'mp4file' || complete) {
       const plan = S.plan, range = exportRange(), span = J.exportSpan(plan, range);
-      const r = await J.exportMP4({ plan, project: proj, audio: S.project.includeAudio !== false ? S.audio : null, quality: S.project.quality || 'high', onProgress, signal: ac.signal, range, file });
+      const exporter = complete ? J.exportCompleteMP4 : J.exportMP4;
+      const r = await exporter({ plan, project: proj, audio: S.project.includeAudio !== false ? S.audio : null, quality: S.project.quality || 'high', onProgress, signal: ac.signal, range, file, ...(complete ? { media: J.workBackground.state.media, background: J.workBackground.getSettings() } : {}) });
       file = null;
       txt.textContent = `完成 ${r.blob ? (r.blob.size / 1048576).toFixed(1) + 'MB、' : ''}${r.codec}${r.audio ? ' + ' + r.audio.toUpperCase() : ''}、${((performance.now() - t0) / 1000).toFixed(0)}秒`;
       if (r.blob) {
-        const name = baseName() + rangeSuffix() + '.mp4';
+        const name = completeName || baseName() + rangeSuffix() + '.mp4';
         const res = await J.saveFile(name, r.blob);
         if (res === 'declined') txt.textContent += '（已取消儲存）';
         offerShare(boxes, r.blob, name);
@@ -37843,7 +38098,7 @@ async function runExport(kind) {
     console.error(e);
     if (file) { try { await file.abort(); } catch (e2) {} }
   } finally {
-    S.exporting = null; S.need = true;
+    S.exporting = null; S.need = true; J.workBackground?.setExporting(false);
     EXP_BTNS.forEach(id => { $(id).disabled = false; });
     try { if (wake) await wake.release(); } catch (e) {}
     codecNote();
@@ -38122,6 +38377,8 @@ function bind() {
     toast(e.target.checked ? `已保留中央：文字與效果放在${tall ? '上下' : '左右'}` : '已取消保留中央');
   }));
   $('btnMP4').addEventListener('click', () => runExport('mp4'));
+  ['btnCompleteMP4','eCompleteMP4'].forEach(id => $(id).addEventListener('click', () => runExport('complete')));
+  ['btnCompleteMP4File','eCompleteMP4File'].forEach(id => $(id).addEventListener('click', () => runExport('completefile')));
   ['btnMP4File', 'eMP4File'].forEach(id => $(id).addEventListener('click', () => runExport('mp4file')));
   $('btnPNG').addEventListener('click', () => runExport('png'));
   $('btnPNGA').addEventListener('click', () => runExport('pnga'));
@@ -38340,11 +38597,13 @@ const copies = {
   'id-ID': ['Latar kerja','Pilih gambar / video','Hapus','Tampilan','Latar + lirik','Tampilan biasa','Ukuran','Tampilkan semua (contain)','Penuhi bingkai (cover)','Opasitas latar','Belum dipilih','Memuat…','Pilih kembali latar kerja','Format ini tidak dapat dimuat. Pilih gambar atau video lain.','Hanya pratinjau; tidak disertakan dalam MP4 / PNG. Bingkai terakhir ditahan setelah video selesai.','Video tidak dapat dimulai. Tekan putar lagi.'],
   vi: ['Nền làm việc','Chọn ảnh / video','Xóa','Hiển thị','Nền + lời bài hát','Hiển thị thường','Căn chỉnh','Hiển thị toàn bộ (contain)','Lấp đầy khung (cover)','Độ đục của nền','Chưa chọn','Đang tải…','Vui lòng chọn lại nền làm việc','Không thể tải định dạng này. Hãy chọn ảnh hoặc video khác.','Chỉ để xem trước; không xuất vào MP4 / PNG. Giữ khung hình cuối khi video kết thúc.','Không thể phát video. Hãy nhấn phát lại.'],
 };
-const copy = copies[document.documentElement.lang] || copies.en;
+const copy = [...(copies[document.documentElement.lang] || copies.en)];
+const ja = document.documentElement.lang === 'ja';
+copy[14] = ja ? '通常MP4・PNGには含めません。「完成動画MP4」で背景を焼き込みます。' : 'Normal MP4 / PNG exclude this media. Use completed MP4 to include it.';
 const state = { media: null, pending: null, generation: 0, project: null, playPending: false, playBlocked: false };
 const lyricCanvas = document.createElement('canvas');
 const lyricRenderer = new J.Renderer();
-const normalize = value => ({ enabled: value?.enabled === true, fit: value?.fit === 'cover' ? 'cover' : 'contain', opacity: typeof value?.opacity === 'number' && Number.isFinite(value.opacity) ? Math.max(0, Math.min(1, value.opacity)) : 1 });
+const normalize = J.finalBackground.normalize;
 let settings = normalize(null);
 const panel = document.createElement('section');
 panel.id = 'workBackground'; panel.className = 'sec work-background';
@@ -38355,8 +38614,17 @@ panel.innerHTML = `<div class="sec-h"><h2>${copy[0]}</h2></div>
   <div class="work-background-fields"><label>${copy[3]}<select id="wbMode" aria-label="${copy[3]}"><option value="combined">${copy[4]}</option><option value="normal" selected>${copy[5]}</option></select></label>
   <label>${copy[6]}<select id="wbFit" aria-label="${copy[6]}"><option value="contain">${copy[7]}</option><option value="cover">${copy[8]}</option></select></label></div>
   <label class="work-background-opacity" for="wbOpacity">${copy[9]} <output id="wbOpacityValue" for="wbOpacity">100%</output><input id="wbOpacity" type="range" min="0" max="100" step="1" value="100"></label>
+  <div id="wbAdvanced" class="work-background-fields">${[
+    ['wbScale', ja ? '拡大率（%）' : 'Scale (%)', 10, 1000, 1, 100],
+    ['wbX', ja ? 'X位置（%）' : 'X position (%)', -200, 200, 1, 0],
+    ['wbY', ja ? 'Y位置（%）' : 'Y position (%)', -200, 200, 1, 0],
+    ['wbMediaStart', ja ? '背景素材開始位置（秒）' : 'Media start (s)', 0, 86400, .001, 0],
+    ['wbTimelineStart', ja ? 'タイムライン開始位置（秒）' : 'Timeline start (s)', 0, 86400, .001, 0]
+  ].map(([id,label,min,max,step,value]) => `<label>${label}<input id="${id}" type="number" min="${min}" max="${max}" step="${step}" value="${value}"></label>`).join('')}
+  <label>${ja ? '動画終了後' : 'After video ends'}<select id="wbEndMode"><option value="hold">${ja ? '最終フレーム保持' : 'Hold last frame'}</option><option value="loop">${ja ? 'ループ' : 'Loop'}</option><option value="black">${ja ? '黒背景' : 'Black'}</option></select></label></div>
   <p id="wbStatus" class="muted" role="status" aria-live="polite"></p><p class="muted work-background-help">${copy[14]}</p>`;
 $('audioFile').closest('.sec').after(panel);
+const advanced = [['wbScale','scale',100],['wbX','x',100],['wbY','y',100],['wbMediaStart','mediaStart',1],['wbTimelineStart','timelineStart',1]];
 const dirty = () => { J.ui.need = true; };
 const status = text => { $('wbStatus').textContent = text; };
 function refreshControls() {
@@ -38365,7 +38633,9 @@ function refreshControls() {
   $('wbOpacity').value = String(Math.round(settings.opacity * 100));
   $('wbOpacityValue').value = Math.round(settings.opacity * 100) + '%';
   $('wbClear').disabled = !state.media && !state.pending;
-  $('wbName').textContent = state.media?.name || copy[10];
+  $('wbName').textContent = state.media ? `${state.media.video ? (ja ? '動画' : 'Video') : (ja ? '静止画' : 'Image')}: ${state.media.name}` : copy[10];
+  for (const [id,key,multiplier] of advanced) $(id).value = String(settings[key] * multiplier);
+  $('wbEndMode').value = settings.endMode;
 }
 function rememberSettings() {
   if (!J.ui.project) return;
@@ -38375,7 +38645,7 @@ function rememberSettings() {
 function dispose(record) {
   if (!record || record.disposed) return;
   record.disposed = true;
-  record.cancel?.();
+  record.cancel?.(); record.probeAbort?.abort();
   if (record.video) record.el.pause();
   record.el.removeAttribute('src');
   if (record.video) record.el.load();
@@ -38402,7 +38672,7 @@ async function selectFile(file) {
   const generation = state.generation;
   const project = J.ui.project;
   const video = file.type.startsWith('video/') || (!file.type && /\.(mp4|webm|mov|m4v|ogv|ogg)$/i.test(file.name));
-  const record = { el: document.createElement(video ? 'video' : 'img'), video, url: URL.createObjectURL(file), name: file.name, disposed: false };
+  const record = { el: document.createElement(video ? 'video' : 'img'), video, url: URL.createObjectURL(file), name: file.name, file, disposed: false };
   if (video) { record.el.muted = true; record.el.playsInline = true; record.el.preload = 'auto'; record.el.loop = false; }
   state.pending = record; status(copy[11]); refreshControls(); dirty();
   try {
@@ -38424,6 +38694,12 @@ async function selectFile(file) {
     record.width = video ? record.el.videoWidth : record.el.naturalWidth;
     record.height = video ? record.el.videoHeight : record.el.naturalHeight;
     record.duration = video ? record.el.duration : Infinity;
+    if (video) {
+      record.probeAbort = new AbortController();
+      try { Object.assign(record, await J.finalBackground.probeVideo(file, record.probeAbort.signal)); }
+      catch (error) { if (record.probeAbort.signal.aborted) throw error; record.firstTimestamp = 0; record.lastTimestamp = Math.max(0, record.duration - .001); }
+      if (generation !== state.generation || project !== J.ui.project) { dispose(record); return; }
+    }
     if (!record.width || !record.height || (video && (!Number.isFinite(record.duration) || record.duration <= 0))) throw new Error('metadata');
     state.pending = null; state.media = record;
     if (video) {
@@ -38444,8 +38720,11 @@ function sync(force = false) {
   if (!settings.enabled || ui.exporting) { v.pause(); return; }
   const rate = ui.tap?.rate > 0 ? ui.tap.rate : 1;
   if (v.playbackRate !== rate) v.playbackRate = rate;
-  const target = Math.max(0, Math.min(ui.t, Math.max(0, record.duration - 0.001)));
-  const playing = ui.playing && ui.t < record.duration;
+  const mapped = J.finalBackground.timeAt(ui.t, settings, record.duration);
+  if (mapped === null) { v.pause(); return; }
+  const target = mapped === Infinity ? record.lastTimestamp : mapped;
+  if (target < (record.firstTimestamp || 0)) { v.pause(); return; }
+  const playing = ui.playing && mapped !== Infinity;
   if (!playing) v.pause();
   const drift = Math.abs(v.currentTime - target);
   // Native playback advances the media clock; seek only for jumps or a drift over 150 ms.
@@ -38454,7 +38733,7 @@ function sync(force = false) {
   if (playing && v.paused && !state.playPending && !state.playBlocked) {
     state.playPending = true;
     v.play().catch(() => { if (state.media === record && !record.disposed) { state.playBlocked = true; status(copy[15]); } })
-      .finally(() => { if (state.media === record) { state.playPending = false; if (!settings.enabled || !ui.playing || ui.exporting || ui.t >= record.duration) v.pause(); } });
+      .finally(() => { if (state.media === record) { state.playPending = false; if (!settings.enabled || !ui.playing || ui.exporting || J.finalBackground.timeAt(ui.t, settings, record.duration) === Infinity) v.pause(); } });
   }
 }
 function draw(ctx, plan, t, opt) {
@@ -38466,17 +38745,15 @@ function draw(ctx, plan, t, opt) {
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.filter = 'none';
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
   if (!record.video || record.el.readyState >= 2) {
-    const ratio = (settings.fit === 'cover' ? Math.max : Math.min)(w / record.width, h / record.height);
-    const dw = record.width * ratio, dh = record.height * ratio;
-    ctx.globalAlpha = settings.opacity;
-    ctx.drawImage(record.el, (w - dw) / 2, (h - dh) / 2, dw, dh);
+    const mapped = J.finalBackground.timeAt(t, settings, record.duration);
+    if (mapped !== null && (!record.video || mapped >= (record.firstTimestamp || 0))) J.finalBackground.paint(ctx, record.el, settings);
   }
   ctx.globalAlpha = 1; ctx.drawImage(lyricCanvas, 0, 0); ctx.restore();
   return true;
 }
 $('wbFile').addEventListener('change', event => {
   const file = event.target.files?.[0]; event.target.value = '';
-  if (file) void selectFile(file);
+  if (file && !J.ui.exporting) void selectFile(file);
 });
 $('wbClear').addEventListener('click', () => {
   release(); settings.enabled = false; rememberSettings(); status(''); refreshControls(); dirty();
@@ -38489,7 +38766,13 @@ $('wbFit').addEventListener('change', () => { settings.fit = $('wbFit').value ==
 $('wbOpacity').addEventListener('input', () => { settings.opacity = +$('wbOpacity').value / 100; rememberSettings(); refreshControls(); dirty(); });
 window.addEventListener('pagehide', () => { release(); refreshControls(); });
 window.addEventListener('pageshow', () => { if (state.project && Object.hasOwn(state.project, 'workBackground') && !state.media) status(copy[12]); dirty(); });
-J.workBackground = { normalize, adoptProject, sync, draw, state, resume: () => { state.playBlocked = false; sync(true); } };
+for (const [id,key,multiplier] of advanced) $(id).addEventListener('change', () => {
+  settings = normalize({ ...settings, [key]: Number($(id).value) / multiplier });
+  rememberSettings(); refreshControls(); sync(true); dirty();
+});
+$('wbEndMode').addEventListener('change', () => { settings = normalize({ ...settings, endMode: $('wbEndMode').value }); rememberSettings(); sync(true); dirty(); });
+function setExporting(value) { for (const id of ['wbFile','wbClear','wbMode','wbFit','wbOpacity','wbEndMode',...advanced.map(row => row[0])]) $(id).disabled = value; if (!value) refreshControls(); }
+J.workBackground = { normalize, adoptProject, sync, draw, state, setExporting, getSettings: () => ({ ...settings }), resume: () => { state.playBlocked = false; sync(true); } };
 })();
 
 /* Local SRT file selection; validation precedes replacement of existing lyrics. */
@@ -38514,6 +38797,27 @@ input.addEventListener('change', async event => {
     J.uiApi.loadSrt(parsed);
   } catch (error) { J.uiApi.toast(error.message || (ja ? 'SRT を読み込めませんでした' : 'Cannot load SRT.')); }
 });
+})();
+
+/* Completed-export controls are created before the native editor binds on DOMContentLoaded. */
+(() => {
+'use strict';
+if (!document.getElementById('app')) return;
+const ja = document.documentElement.lang === 'ja';
+for (const [anchor, id] of [['btnMP4', 'btnCompleteMP4'], ['eMP4', 'eCompleteMP4']]) {
+  const original = document.getElementById(anchor);
+  if (ja || document.documentElement.lang === 'en') original.textContent = ja ? 'リリックのみMP4を書き出す' : 'Export lyrics-only MP4';
+  const group = document.createElement('div'); group.className = 'outbtns complete-output';
+  const button = document.createElement('button'); button.id = id; button.className = 'primary';
+  button.textContent = ja ? '完成動画MP4を書き出す' : 'Export completed MP4'; group.append(button);
+  const direct = document.createElement('button'); direct.id = id + 'File'; direct.className = 'ghost';
+  direct.textContent = ja ? '完成動画（ファイルに直接保存）' : 'Completed MP4 (save directly to file)';
+  direct.hidden = typeof window.showSaveFilePicker !== 'function'; group.append(direct);
+  const help = document.createElement('p'); help.className = 'muted complete-help';
+  help.textContent = ja ? '選択した背景を焼き込みます。音声は読み込んだ楽曲だけです。上の通常MP4・PNGには素材背景を含めません。' : 'Includes the selected background. Only the loaded song is used for audio. Normal MP4 / PNG exclude this background.';
+  group.append(help); original.closest('.outbtns').after(group);
+}
+window.addEventListener('pagehide', () => J.ui?.exporting?.abort());
 })();
 
 </script>

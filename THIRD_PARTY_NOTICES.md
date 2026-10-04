@@ -35,3 +35,13 @@ The web app loads the following typefaces at runtime from Google Fonts (https://
 included in this repository. They are distributed by their authors under the SIL Open Font License 1.1:
 Noto Sans JP, Noto Serif JP, Dela Gothic One, Zen Kaku Gothic New, Zen Old Mincho, Kaisei Tokumin,
 M PLUS Rounded 1c, Mochiy Pop One, DotGothic16, Yuji Syuku, IBM Plex Mono, IBM Plex Sans JP.
+
+## Mediabunny 1.61.1 (unmodified bundled module)
+
+Copyright (c) 2026-present, Vanilagy and contributors. Licensed under Mozilla Public License 2.0 (MPL-2.0).
+
+The completed-video exporter loads `vendor/mediabunny.min.mjs` locally to decode background video by presentation timestamps. The module is the unmodified npm 1.61.1 bundle. It is a separate MPL-covered file; SYNTHIA additions are separate files under the existing MIT license.
+
+A full license copy is provided at [vendor/LICENSE.mediabunny.txt](vendor/LICENSE.mediabunny.txt). The complete corresponding source package, including TypeScript sources, shared sources, license and package metadata, is available at [vendor/mediabunny-1.61.1-source.tar.gz](vendor/mediabunny-1.61.1-source.tar.gz) without charge. It is also available from https://registry.npmjs.org/mediabunny/-/mediabunny-1.61.1.tgz and https://github.com/Vanilagy/mediabunny/tree/v1.61.1 . Source form remains licensed under MPL-2.0. No Mediabunny source or bundle changes were made.
+
+No code was transplanted from JIZURA Layer Studio. Its timestamp-reader architecture was consulted; SYNTHIA implementation is independent. Existing JIZURA copyright and MIT license remain unchanged.

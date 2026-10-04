@@ -12,11 +12,13 @@ const copies = {
   'id-ID': ['Latar kerja','Pilih gambar / video','Hapus','Tampilan','Latar + lirik','Tampilan biasa','Ukuran','Tampilkan semua (contain)','Penuhi bingkai (cover)','Opasitas latar','Belum dipilih','Memuat…','Pilih kembali latar kerja','Format ini tidak dapat dimuat. Pilih gambar atau video lain.','Hanya pratinjau; tidak disertakan dalam MP4 / PNG. Bingkai terakhir ditahan setelah video selesai.','Video tidak dapat dimulai. Tekan putar lagi.'],
   vi: ['Nền làm việc','Chọn ảnh / video','Xóa','Hiển thị','Nền + lời bài hát','Hiển thị thường','Căn chỉnh','Hiển thị toàn bộ (contain)','Lấp đầy khung (cover)','Độ đục của nền','Chưa chọn','Đang tải…','Vui lòng chọn lại nền làm việc','Không thể tải định dạng này. Hãy chọn ảnh hoặc video khác.','Chỉ để xem trước; không xuất vào MP4 / PNG. Giữ khung hình cuối khi video kết thúc.','Không thể phát video. Hãy nhấn phát lại.'],
 };
-const copy = copies[document.documentElement.lang] || copies.en;
+const copy = [...(copies[document.documentElement.lang] || copies.en)];
+const ja = document.documentElement.lang === 'ja';
+copy[14] = ja ? '通常MP4・PNGには含めません。「完成動画MP4」で背景を焼き込みます。' : 'Normal MP4 / PNG exclude this media. Use completed MP4 to include it.';
 const state = { media: null, pending: null, generation: 0, project: null, playPending: false, playBlocked: false };
 const lyricCanvas = document.createElement('canvas');
 const lyricRenderer = new J.Renderer();
-const normalize = value => ({ enabled: value?.enabled === true, fit: value?.fit === 'cover' ? 'cover' : 'contain', opacity: typeof value?.opacity === 'number' && Number.isFinite(value.opacity) ? Math.max(0, Math.min(1, value.opacity)) : 1 });
+const normalize = J.finalBackground.normalize;
 let settings = normalize(null);
 const panel = document.createElement('section');
 panel.id = 'workBackground'; panel.className = 'sec work-background';
@@ -27,8 +29,17 @@ panel.innerHTML = `<div class="sec-h"><h2>${copy[0]}</h2></div>
   <div class="work-background-fields"><label>${copy[3]}<select id="wbMode" aria-label="${copy[3]}"><option value="combined">${copy[4]}</option><option value="normal" selected>${copy[5]}</option></select></label>
   <label>${copy[6]}<select id="wbFit" aria-label="${copy[6]}"><option value="contain">${copy[7]}</option><option value="cover">${copy[8]}</option></select></label></div>
   <label class="work-background-opacity" for="wbOpacity">${copy[9]} <output id="wbOpacityValue" for="wbOpacity">100%</output><input id="wbOpacity" type="range" min="0" max="100" step="1" value="100"></label>
+  <div id="wbAdvanced" class="work-background-fields">${[
+    ['wbScale', ja ? '拡大率（%）' : 'Scale (%)', 10, 1000, 1, 100],
+    ['wbX', ja ? 'X位置（%）' : 'X position (%)', -200, 200, 1, 0],
+    ['wbY', ja ? 'Y位置（%）' : 'Y position (%)', -200, 200, 1, 0],
+    ['wbMediaStart', ja ? '背景素材開始位置（秒）' : 'Media start (s)', 0, 86400, .001, 0],
+    ['wbTimelineStart', ja ? 'タイムライン開始位置（秒）' : 'Timeline start (s)', 0, 86400, .001, 0]
+  ].map(([id,label,min,max,step,value]) => `<label>${label}<input id="${id}" type="number" min="${min}" max="${max}" step="${step}" value="${value}"></label>`).join('')}
+  <label>${ja ? '動画終了後' : 'After video ends'}<select id="wbEndMode"><option value="hold">${ja ? '最終フレーム保持' : 'Hold last frame'}</option><option value="loop">${ja ? 'ループ' : 'Loop'}</option><option value="black">${ja ? '黒背景' : 'Black'}</option></select></label></div>
   <p id="wbStatus" class="muted" role="status" aria-live="polite"></p><p class="muted work-background-help">${copy[14]}</p>`;
 $('audioFile').closest('.sec').after(panel);
+const advanced = [['wbScale','scale',100],['wbX','x',100],['wbY','y',100],['wbMediaStart','mediaStart',1],['wbTimelineStart','timelineStart',1]];
 const dirty = () => { J.ui.need = true; };
 const status = text => { $('wbStatus').textContent = text; };
 function refreshControls() {
@@ -37,7 +48,9 @@ function refreshControls() {
   $('wbOpacity').value = String(Math.round(settings.opacity * 100));
   $('wbOpacityValue').value = Math.round(settings.opacity * 100) + '%';
   $('wbClear').disabled = !state.media && !state.pending;
-  $('wbName').textContent = state.media?.name || copy[10];
+  $('wbName').textContent = state.media ? `${state.media.video ? (ja ? '動画' : 'Video') : (ja ? '静止画' : 'Image')}: ${state.media.name}` : copy[10];
+  for (const [id,key,multiplier] of advanced) $(id).value = String(settings[key] * multiplier);
+  $('wbEndMode').value = settings.endMode;
 }
 function rememberSettings() {
   if (!J.ui.project) return;
@@ -47,7 +60,7 @@ function rememberSettings() {
 function dispose(record) {
   if (!record || record.disposed) return;
   record.disposed = true;
-  record.cancel?.();
+  record.cancel?.(); record.probeAbort?.abort();
   if (record.video) record.el.pause();
   record.el.removeAttribute('src');
   if (record.video) record.el.load();
@@ -74,7 +87,7 @@ async function selectFile(file) {
   const generation = state.generation;
   const project = J.ui.project;
   const video = file.type.startsWith('video/') || (!file.type && /\.(mp4|webm|mov|m4v|ogv|ogg)$/i.test(file.name));
-  const record = { el: document.createElement(video ? 'video' : 'img'), video, url: URL.createObjectURL(file), name: file.name, disposed: false };
+  const record = { el: document.createElement(video ? 'video' : 'img'), video, url: URL.createObjectURL(file), name: file.name, file, disposed: false };
   if (video) { record.el.muted = true; record.el.playsInline = true; record.el.preload = 'auto'; record.el.loop = false; }
   state.pending = record; status(copy[11]); refreshControls(); dirty();
   try {
@@ -96,6 +109,12 @@ async function selectFile(file) {
     record.width = video ? record.el.videoWidth : record.el.naturalWidth;
     record.height = video ? record.el.videoHeight : record.el.naturalHeight;
     record.duration = video ? record.el.duration : Infinity;
+    if (video) {
+      record.probeAbort = new AbortController();
+      try { Object.assign(record, await J.finalBackground.probeVideo(file, record.probeAbort.signal)); }
+      catch (error) { if (record.probeAbort.signal.aborted) throw error; record.firstTimestamp = 0; record.lastTimestamp = Math.max(0, record.duration - .001); }
+      if (generation !== state.generation || project !== J.ui.project) { dispose(record); return; }
+    }
     if (!record.width || !record.height || (video && (!Number.isFinite(record.duration) || record.duration <= 0))) throw new Error('metadata');
     state.pending = null; state.media = record;
     if (video) {
@@ -116,8 +135,11 @@ function sync(force = false) {
   if (!settings.enabled || ui.exporting) { v.pause(); return; }
   const rate = ui.tap?.rate > 0 ? ui.tap.rate : 1;
   if (v.playbackRate !== rate) v.playbackRate = rate;
-  const target = Math.max(0, Math.min(ui.t, Math.max(0, record.duration - 0.001)));
-  const playing = ui.playing && ui.t < record.duration;
+  const mapped = J.finalBackground.timeAt(ui.t, settings, record.duration);
+  if (mapped === null) { v.pause(); return; }
+  const target = mapped === Infinity ? record.lastTimestamp : mapped;
+  if (target < (record.firstTimestamp || 0)) { v.pause(); return; }
+  const playing = ui.playing && mapped !== Infinity;
   if (!playing) v.pause();
   const drift = Math.abs(v.currentTime - target);
   // Native playback advances the media clock; seek only for jumps or a drift over 150 ms.
@@ -126,7 +148,7 @@ function sync(force = false) {
   if (playing && v.paused && !state.playPending && !state.playBlocked) {
     state.playPending = true;
     v.play().catch(() => { if (state.media === record && !record.disposed) { state.playBlocked = true; status(copy[15]); } })
-      .finally(() => { if (state.media === record) { state.playPending = false; if (!settings.enabled || !ui.playing || ui.exporting || ui.t >= record.duration) v.pause(); } });
+      .finally(() => { if (state.media === record) { state.playPending = false; if (!settings.enabled || !ui.playing || ui.exporting || J.finalBackground.timeAt(ui.t, settings, record.duration) === Infinity) v.pause(); } });
   }
 }
 function draw(ctx, plan, t, opt) {
@@ -138,17 +160,15 @@ function draw(ctx, plan, t, opt) {
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.filter = 'none';
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
   if (!record.video || record.el.readyState >= 2) {
-    const ratio = (settings.fit === 'cover' ? Math.max : Math.min)(w / record.width, h / record.height);
-    const dw = record.width * ratio, dh = record.height * ratio;
-    ctx.globalAlpha = settings.opacity;
-    ctx.drawImage(record.el, (w - dw) / 2, (h - dh) / 2, dw, dh);
+    const mapped = J.finalBackground.timeAt(t, settings, record.duration);
+    if (mapped !== null && (!record.video || mapped >= (record.firstTimestamp || 0))) J.finalBackground.paint(ctx, record.el, settings);
   }
   ctx.globalAlpha = 1; ctx.drawImage(lyricCanvas, 0, 0); ctx.restore();
   return true;
 }
 $('wbFile').addEventListener('change', event => {
   const file = event.target.files?.[0]; event.target.value = '';
-  if (file) void selectFile(file);
+  if (file && !J.ui.exporting) void selectFile(file);
 });
 $('wbClear').addEventListener('click', () => {
   release(); settings.enabled = false; rememberSettings(); status(''); refreshControls(); dirty();
@@ -161,5 +181,11 @@ $('wbFit').addEventListener('change', () => { settings.fit = $('wbFit').value ==
 $('wbOpacity').addEventListener('input', () => { settings.opacity = +$('wbOpacity').value / 100; rememberSettings(); refreshControls(); dirty(); });
 window.addEventListener('pagehide', () => { release(); refreshControls(); });
 window.addEventListener('pageshow', () => { if (state.project && Object.hasOwn(state.project, 'workBackground') && !state.media) status(copy[12]); dirty(); });
-J.workBackground = { normalize, adoptProject, sync, draw, state, resume: () => { state.playBlocked = false; sync(true); } };
+for (const [id,key,multiplier] of advanced) $(id).addEventListener('change', () => {
+  settings = normalize({ ...settings, [key]: Number($(id).value) / multiplier });
+  rememberSettings(); refreshControls(); sync(true); dirty();
+});
+$('wbEndMode').addEventListener('change', () => { settings = normalize({ ...settings, endMode: $('wbEndMode').value }); rememberSettings(); sync(true); dirty(); });
+function setExporting(value) { for (const id of ['wbFile','wbClear','wbMode','wbFit','wbOpacity','wbEndMode',...advanced.map(row => row[0])]) $(id).disabled = value; if (!value) refreshControls(); }
+J.workBackground = { normalize, adoptProject, sync, draw, state, setExporting, getSettings: () => ({ ...settings }), resume: () => { state.playBlocked = false; sync(true); } };
 })();
