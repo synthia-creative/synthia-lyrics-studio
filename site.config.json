@@ -1,7 +1,7 @@
 {
   "app_name": "SYNTHIA Lyrics Studio",
   "app_short_name": "SYNTHIA",
-  "site_url": "https://takashige2026.github.io/synthia-lyrics-studio/",
+  "site_url": "https://synthia-creative.github.io/synthia-lyrics-studio/",
   "description_ja": "歌詞と音源からリリックモーション動画を制作できるブラウザベースのMV制作ツール。",
   "description_en": "Create lyric motion videos from lyrics and audio in your browser and export MP4."
 }

@@ -2,8 +2,8 @@
 
 JIZURAをベースにカスタマイズした、個人向けリリックモーション・MV制作Webアプリです。
 
-公開URL: https://takashige2026.github.io/synthia-lyrics-studio/
-GitHub: https://github.com/takashige2026/synthia-lyrics-studio
+公開URL: https://synthia-creative.github.io/synthia-lyrics-studio/
+GitHub: https://github.com/synthia-creative/synthia-lyrics-studio
 2026-10-04にGitHub Pagesで公開し、公開版のChrome・Edgeで主要機能を確認しました。[公開結果](docs/PUBLICATION.md)と[動作確認](docs/QA.md)を参照してください。
 
 Base: JIZURA v0.10.1 / Custom: SYNTHIA Lyrics Studio v0.3.0
