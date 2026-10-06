@@ -57,7 +57,7 @@ JSONには次の設定だけを追加します。既存の`version: 1`、歌詞�
 ## 検証
 
 検証日: 2026-10-04。利用者の素材を使わず、合成画像・2秒動画・合成SRTで確認しました。
-検証対象: v0.2.0のローカル候補（http://127.0.0.1:8091/）。公開URL: https://takashige2026.github.io/synthia-lyrics-studio/
+検証対象: v0.2.0のローカル候補（http://127.0.0.1:8091/）。公開URL: https://synthia-creative.github.io/synthia-lyrics-studio/
 Browser plugin not available: 既存のPlaywrightとこのPCのChrome・Edgeを使用。追加インストールなし。
 
 - PNG・JPG・MP4・WebM、解除、差し替え、読み込み中の解除、URL破棄

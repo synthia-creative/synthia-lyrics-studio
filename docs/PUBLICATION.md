@@ -4,16 +4,16 @@
 
 ## 公開URL
 
-URL: https://takashige2026.github.io/synthia-lyrics-studio/
+URL: https://synthia-creative.github.io/synthia-lyrics-studio/
 
 GitHub Pagesへの配信が成功し、HTTPSで利用できます。
 
 ## GitHub Repository
 
-URL: https://github.com/takashige2026/synthia-lyrics-studio
+URL: https://github.com/synthia-creative/synthia-lyrics-studio
 
 Publicリポジトリのmainへ公開。原版の履歴と独自変更のコミットを保持しています。
-GitHub Actions: https://github.com/takashige2026/synthia-lyrics-studio/actions/runs/37181334109 （再実行2で成功）。初回はPagesの有効化前に起動したため失敗し、有効化後の再実行で解消しました。
+GitHub Actions: https://github.com/synthia-creative/synthia-lyrics-studio/actions/runs/37181334109 （再実行2で成功）。初回はPagesの有効化前に起動したため失敗し、有効化後の再実行で解消しました。
 
 ## ベース
 

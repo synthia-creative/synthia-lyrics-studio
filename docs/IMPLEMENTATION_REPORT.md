@@ -2,12 +2,12 @@
 
 ## 公開URL
 
-公開URL: https://takashige2026.github.io/synthia-lyrics-studio/
+公開URL: https://synthia-creative.github.io/synthia-lyrics-studio/
 2026-10-04に利用者の承認を得てGitHub Pagesで公開しました。
 
 ## GitHub Repository
 
-URL: https://github.com/takashige2026/synthia-lyrics-studio
+URL: https://github.com/synthia-creative/synthia-lyrics-studio
 GitHubコネクターの認証ユーザーが takashige2026 であることを確認済み。
 Publicリポジトリを作成し、利用者自身による通常のブラウザ認証後にmainへpushしました。
 GitHub Actionsのビルド・配信は成功しています。[公開結果](PUBLICATION.md)を参照してください。

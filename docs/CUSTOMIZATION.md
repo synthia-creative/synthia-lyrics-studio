@@ -1,7 +1,7 @@
 # カスタマイズ
 
 アプリ名: SYNTHIA Lyrics Studio
-公開URL: https://takashige2026.github.io/synthia-lyrics-studio/ （設定値。公開確認とは別）
+公開URL: https://synthia-creative.github.io/synthia-lyrics-studio/ （設定値。公開確認とは別）
 Custom: 0.1.0 / Base: JIZURA 0.10.1
 
 ## 設定

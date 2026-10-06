@@ -2,7 +2,7 @@
 
 確認日: 2026-10-04（日本時間）
 対象: SYNTHIA Lyrics Studio v0.1.0 / JIZURA v0.10.1
-公開対象URL: https://takashige2026.github.io/synthia-lyrics-studio/
+公開対象URL: https://synthia-creative.github.io/synthia-lyrics-studio/
 ローカル対象URL: http://127.0.0.1:8089/ （Pagesに配信する _site/ をローカルHTTPで配信）
 ブラウザ: このPCにインストールされたGoogle Chrome / Microsoft EdgeをPlaywrightから起動
 操作検査には既存のPlaywrightとブラウザを使用。追加インストールなし。公開画面は通常のChromeでも表示確認しました。
@@ -38,7 +38,7 @@ MP4はffprobeで映像・音声トラックを確認し、ffmpegで全体をデ�
 
 ## 公開と配信の確認
 
-- GitHub Actionsのビルド・配信成功（[公開結果文書を含むrun](https://github.com/takashige2026/synthia-lyrics-studio/actions/runs/37181828772)）
+- GitHub Actionsのビルド・配信成功（[公開結果文書を含むrun](https://github.com/synthia-creative/synthia-lyrics-studio/actions/runs/37181828772)）
 - 公開7言語のHTTP 200、canonical・Open Graph・hreflang・sitemapを独自公開先で確認
 - 配信HTML7件は改行を正規化してローカル生成物と一致
 - LICENSE、THIRD_PARTY_NOTICES.md、vendor/LICENSE.mp4-muxer.txtは公開配信とローカルが一致

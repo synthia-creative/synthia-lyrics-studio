@@ -1,14 +1,14 @@
 # JIZURA 字面 — 文字PV自動構成ツール
 
-**English edition:** [Open the app](https://takashige2026.github.io/synthia-lyrics-studio/en/) · [English guide](../README.en.md)　／　**Bahasa Indonesia**：[Buka](https://takashige2026.github.io/synthia-lyrics-studio/id/) · [Panduan](../README.id.md)　**Tiếng Việt**：[Mở](https://takashige2026.github.io/synthia-lyrics-studio/vi/) · [Hướng dẫn](../README.vi.md)　**繁體中文**：[開啟](https://takashige2026.github.io/synthia-lyrics-studio/zh-hant/)　**简体中文**：[打开](https://takashige2026.github.io/synthia-lyrics-studio/zh-hans/)　**한국어**：[열기](https://takashige2026.github.io/synthia-lyrics-studio/ko/) · [한국어 가이드](../README.ko.md)
+**English edition:** [Open the app](https://synthia-creative.github.io/synthia-lyrics-studio/en/) · [English guide](../README.en.md)　／　**Bahasa Indonesia**：[Buka](https://synthia-creative.github.io/synthia-lyrics-studio/id/) · [Panduan](../README.id.md)　**Tiếng Việt**：[Mở](https://synthia-creative.github.io/synthia-lyrics-studio/vi/) · [Hướng dẫn](../README.vi.md)　**繁體中文**：[開啟](https://synthia-creative.github.io/synthia-lyrics-studio/zh-hant/)　**简体中文**：[打开](https://synthia-creative.github.io/synthia-lyrics-studio/zh-hans/)　**한국어**：[열기](https://synthia-creative.github.io/synthia-lyrics-studio/ko/) · [한국어 가이드](../README.ko.md)
 
-英語版 AE パネル：[ScriptUI](https://takashige2026.github.io/synthia-lyrics-studio/JIZURA_AE_en.jsx) · [CEP](https://takashige2026.github.io/synthia-lyrics-studio/JIZURA_CEP_en.zip)
+英語版 AE パネル：[ScriptUI](https://synthia-creative.github.io/synthia-lyrics-studio/JIZURA_AE_en.jsx) · [CEP](https://synthia-creative.github.io/synthia-lyrics-studio/JIZURA_CEP_en.zip)
 
 歌詞を入れると、文字PV（リリックモーション）でよく使われる表現を組み合わせてカットを自動で組み立て、MP4 に書き出すブラウザアプリです。レイアウト・動き・装飾・つなぎ・仕上げを 860 の小さな部品（と 27 のスタイル）として持ち、その組み合わせを毎回変えるので、シードを変えれば何度でも別の構成になります。After Effects 用のパネル（スクリプト版と、ブラウザ版の画面をそのまま使える CEP 版）も付属しています。
 
 **バージョン：v0.9.0**（変更の記録は [CHANGELOG.md](CHANGELOG.md)）
 
-**▶ ブラウザで使う：<https://takashige2026.github.io/synthia-lyrics-studio/>**　／　AE パネル：[JIZURA_AE.jsx](https://takashige2026.github.io/synthia-lyrics-studio/JIZURA_AE.jsx)（スクリプト版。リンク先を右クリック →「名前を付けてリンク先を保存」）・[JIZURA_CEP.zip](https://takashige2026.github.io/synthia-lyrics-studio/JIZURA_CEP.zip)（CEP 版）
+**▶ ブラウザで使う：<https://synthia-creative.github.io/synthia-lyrics-studio/>**　／　AE パネル：[JIZURA_AE.jsx](https://synthia-creative.github.io/synthia-lyrics-studio/JIZURA_AE.jsx)（スクリプト版。リンク先を右クリック →「名前を付けてリンク先を保存」）・[JIZURA_CEP.zip](https://synthia-creative.github.io/synthia-lyrics-studio/JIZURA_CEP.zip)（CEP 版）
 
 - インストール不要。歌詞・曲・書き出しはすべてブラウザの中で処理され、サーバーには送信されません（外部から読み込むのは Google Fonts のフォントだけで、今の構成で使う書体だけを読み込みます）。
 - おまかせボタン（キー `R`）で、押すたびにスタイル・雰囲気・動き・配色・構成がまるごと変わります。
@@ -353,7 +353,7 @@ AE パネルは2種類あります。どちらも中の生成エンジンは同�
 <details>
 <summary><h3>CEP 版（ブラウザ版の画面を AE の中で）</h3></summary>
 
-1. [`JIZURA_CEP.zip`](https://takashige2026.github.io/synthia-lyrics-studio/JIZURA_CEP.zip) をダウンロードして展開します。
+1. [`JIZURA_CEP.zip`](https://synthia-creative.github.io/synthia-lyrics-studio/JIZURA_CEP.zip) をダウンロードして展開します。
 2. Windows は `install_win.bat`、Mac は `install_mac.command` を実行します（ユーザーの CEP エクステンションフォルダにコピーし、署名なしのパネルを読み込めるように設定します）。
 3. After Effects（2022 以降）を再起動し、**ウィンドウ → エクステンション → JIZURA 字面** を開きます。
 
