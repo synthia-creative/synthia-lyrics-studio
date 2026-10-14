@@ -1,5 +1,16 @@
 # SYNTHIA Custom Changelog
 
+## SYNTHIA Custom v0.4.0 — 2026-10-14
+
+### Added
+- Ballad Motion Engine v1.0、静かな／感動系／ドラマチック、強さ0–100%、明示生成・再抽選
+- Soft Fade / Gentle Float / Light Trace / Emotional Bloom、専用中央配置と短尺・長文の可読性制御
+- 共通コア・固定seed・保存済みレシピ・音源なしの再現、出力と一致するreduce motion
+
+### Preserved
+- テーマ選択だけでは既存の演出を変更しない。手動指定・ロック・SRT時刻・旧JSON・既存MP4/PNGを維持
+- バラード以外の抽選は従来どおり。検証・操作ガイド: docs/BALLAD_MOTION.md
+
 ## SYNTHIA Custom v0.3.1
 
 ### Changed

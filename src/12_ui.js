@@ -130,6 +130,7 @@ function mergeProject(p) {
   o.themeId = p && typeof p.themeId === 'string' && J.THEMES && J.THEMES[p.themeId] ? p.themeId : null;
   o.fonts = {};
   for (const [role, k] of Object.entries((p && p.fonts) || {})) if (typeof k === 'string' && J.FONTS[k] && /^[\w-]+$/.test(role)) o.fonts[role] = k;
+  if (J.ballad) { const b = J.ballad.normalize(p?.balladMotion); if (b) o.balladMotion = b; else delete o.balladMotion; }
   return o;
 }
 /* v0.10: untagged lines of an LRC text now stay where they are written — move per-line settings of older projects along */
@@ -513,6 +514,11 @@ function pickEnabledTech(g, opts) {
 }
 function rerollCurrentCut(kind) {
   if (S.exporting || S.tap) return;
+  if (J.ballad?.themeOf(S.project) === 'ballad') {
+    const cut = J.cutAt(S.plan, S.t);
+    if (!cut || cut.utext == null || S.project.overrides?.[cut.line]?.lock) return;
+    balladReroll(J.ballad.keyOf(S.plan, cut)); return;
+  }
   const cut = J.cutAt(S.plan, S.t);
   const k = lyricCutK(cut);
   if (!cut || k < 0) { toast('この位置のカットは抽選できません'); return; }
@@ -1018,7 +1024,7 @@ function randomPalette() {
 
 /* ---------------- history of looks (◀ ▶) ---------------- */
 // only the "look" is tracked — lyrics, timing and output settings are never rolled back
-const HKEYS = ['style', 'mood', 'seed', 'fx', 'enabled', 'fonts', 'colors', 'overrides', 'locks'];
+const HKEYS = ['balladMotion', 'style', 'mood', 'seed', 'fx', 'enabled', 'fonts', 'colors', 'overrides', 'locks'];
 const H = { list: [], i: -1 };
 const lookSnap = () => JSON.stringify(Object.fromEntries(HKEYS.map(k => [k, S.project[k] ?? null])));
 function remember() {            // call before changing the look: makes sure the current look is on the stack
@@ -1157,10 +1163,12 @@ function rerollPart(part) {
     const th = J.THEMES[P.themeId] ? P.themeId : null;
     const r = th ? J.omakase(P, Math.random, th) : J.omakase(P);
     Object.assign(P, { mood: r.mood, fx: r.fx, enabled: r.enabled });
+    if (r.balladMotion) P.balladMotion = r.balladMotion;
     for (const k of ['wa', 'extra', ...J.SET_ORDER]) if (r[k] === true) P[k] = true;     // switches the theme needs
     restoreEnabled(keepE); restoreParams(keepP);
     msg = `雰囲気：${J.MOODS[r.mood].name}`;
   } else if (part === 'cut') {
+    if (J.ballad?.themeOf(P) === 'ballad') { balladReroll(); return; }
     P.seed = (Math.random() * 1e9) | 0;
     msg = '構成：レイアウトと動きを再抽選';
   }
@@ -1593,6 +1601,7 @@ function updateTap() {
 
 /* ---------------- sync all inputs from project ---------------- */
 function syncUI() {
+  J.syncBalladUI?.();
   J.workBackground?.adoptProject(S.project);
   $('songTitle').value = S.project.title || ''; $('songArtist').value = S.project.artist || '';
   $('lyrics').value = S.project.lyrics;
@@ -1653,7 +1662,7 @@ function bind() {
     S.loop = LOOP_CYCLE[(i < 0 ? 0 : i + 1) % LOOP_CYCLE.length];
     syncLoopBtn(); S.need = true;
   });
-  $('btnShuffle').addEventListener('click', () => { remember(); S.project.seed = (Math.random() * 1e9) | 0; $('seed').value = S.project.seed; replan(); commit(); });
+  $('btnShuffle').addEventListener('click', () => { if (J.ballad?.themeOf(S.project) === 'ballad') { balladReroll(); return; } remember(); S.project.seed = (Math.random() * 1e9) | 0; $('seed').value = S.project.seed; replan(); commit(); });
   const sc = $('scrub');
   sc.addEventListener('input', () => { S.scrubbing = true; seek(sc.value / 10000 * S.plan.duration); });
   sc.addEventListener('change', () => { S.scrubbing = false; });
@@ -1962,7 +1971,18 @@ function boot() {
   if (J.loadSong && S.project.audioName) J.loadSong().then(f => { if (f && f.name === S.project.audioName && !S.audio) loadAudioFile(f, true); });
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+
+function balladReroll(targetKey) {
+  if (S.exporting || S.tap) return;
+  remember();
+  const old = J.ballad.dataOf(S.project), settings = { ...J.BalladMotionEngine.settings(old), seed: Math.floor(Math.random() * 4294967296) };
+  if (!old && typeof matchMedia === 'function') settings.reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  S.project = J.ballad.generate(S.project, settings, targetKey ? 'cut' : 'design', S.plan, targetKey, audioLike());
+  fontKey = ''; syncUI(); replan(); commit(); flushSave();
+  toast(document.documentElement.lang === 'ja' ? 'バラード演出を再抽選しました' : 'Ballad motion rerolled');
+}
+
 J.ui = S;
 // hooks for hosts that embed the app (the After Effects CEP panel)
-J.uiApi = { toast, replan, syncUI, pause, seek, flushSave, loadAudioFile, loadSrt, restartPreview, exportRange, exportRangeLines };
+J.uiApi = { balladReroll, balladRemember: remember, audioLike, toast, replan, syncUI, pause, seek, flushSave, loadAudioFile, loadSrt, restartPreview, exportRange, exportRangeLines };
 })();
