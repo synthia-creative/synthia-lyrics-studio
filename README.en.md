@@ -1,5 +1,7 @@
 # JIZURA — Lyric Motion Video Maker
 
+v0.4.0 adds Ballad Motion Engine v1.0: three presets, motion strength, Soft Fade / Gentle Float / Light Trace / Emotional Bloom, deterministic saves and safe rerolls. No audio analysis is required. [Guide](docs/BALLAD_MOTION.md).
+
 Turn lyrics into animated lyric videos in your browser. JIZURA combines layouts, entrances, holds, exits, decorations, text treatments, backgrounds, camera moves, effects and transitions. Change the seed or press **Create a variation** to explore another arrangement.
 
 **[Open the English app](https://synthia-creative.github.io/synthia-lyrics-studio/en/)** · [Bahasa Indonesia](https://synthia-creative.github.io/synthia-lyrics-studio/id/) · [Tiếng Việt](https://synthia-creative.github.io/synthia-lyrics-studio/vi/) · [Vietnamese guide](README.vi.md) · [日本語版](https://synthia-creative.github.io/synthia-lyrics-studio/) · [繁體中文](https://synthia-creative.github.io/synthia-lyrics-studio/zh-hant/) · [简体中文](https://synthia-creative.github.io/synthia-lyrics-studio/zh-hans/) · [한국어](https://synthia-creative.github.io/synthia-lyrics-studio/ko/) · [Korean guide](README.ko.md) · [Japanese guide](README.md)

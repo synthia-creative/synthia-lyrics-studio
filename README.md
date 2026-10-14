@@ -1,12 +1,14 @@
 # SYNTHIA Lyrics Studio
 
+v0.4.0にBallad Motion Engine v1.0を追加しました。バラードの3プリセット、強さ調整、穏やかな演出、カット再抽選に対応します。[操作と保存](docs/BALLAD_MOTION.md)。
+
 JIZURAをベースにカスタマイズした、個人向けリリックモーション・MV制作Webアプリです。
 
 公開URL: https://synthia-creative.github.io/synthia-lyrics-studio/
 GitHub: https://github.com/synthia-creative/synthia-lyrics-studio
 2026-10-04にGitHub Pagesで公開し、公開版のChrome・Edgeで主要機能を確認しました。[公開結果](docs/PUBLICATION.md)と[動作確認](docs/QA.md)を参照してください。
 
-Base: JIZURA v0.10.1 / Custom: SYNTHIA Lyrics Studio v0.3.0
+Base: JIZURA v0.10.1 / Custom: SYNTHIA Lyrics Studio v0.4.0
 
 ## 作業用背景・SRT
 

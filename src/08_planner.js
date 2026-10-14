@@ -381,6 +381,9 @@ J.plan = (project, audio) => {
     // a locked line keeps its own cuts too (the cut count would otherwise follow the 細かさ slider or おまかせ)
     if (ov.lock && Array.isArray(ov.lockedCuts) && ov.lockedCuts.length && ov.lockedCuts.every(c => c && typeof c.utext === 'string' && ln.text.includes(c.utext.trim())))
       units = ov.lockedCuts.map(c => ({ text: c.utext, w: [...c.utext].length + 1.6, recap: !!c.recap }));
+    const balladUnits = J.ballad?.dataOf(project)?.units?.[J.ballad.unitKey({ index: li, cueId: ln.cueId })];
+    if (!ov.lock && balladUnits?.text === ln.text && balladUnits.signature === J.ballad.unitSignature(ov) && balladUnits.cuts?.length)
+      units = balladUnits.cuts.map(c => ({ ...c }));
     const tot = units.reduce((a, u) => a + u.w, 0);
     // ロック: a locked line keeps exactly what it showed when it was locked (layouts, motion, decorations, colours,
     // accents) — rerolling other lines changes the shared "recently used" state, so the seed alone is not enough
@@ -549,6 +552,8 @@ J.plan = (project, audio) => {
       }
       const cut = makeCut({ text: txt, lineText: ln.text, note: ln.note, line: li, start: cs, end: ce, layout, enter, exit, hold, inDur, outDur, params, decor, scheme: sch, seed: cutSeed, emph, recap: !!u.recap, words: J.chunkText(txt), stagger: rng.range(0.025, 0.06),
         treat, treatP, bg, bgP: techBgP || (bg === lineBg ? lineBgP : {}), cam, camP, trans, transP, transDur, zone: Z, utext: u.text });
+      if (LS?.ballad) cut.ballad = LS.ballad;
+      if (LS?.stagger != null) cut.stagger = LS.stagger;
       if (kime || (LS && LS.kime)) cut.kime = true;
       if (weightGrow) cut.weightGrow = true;
       if (morph) cut.morph = morph;
@@ -760,7 +765,7 @@ J.lineSnapshot = (plan, li) => {
   const cuts = plan.cuts.filter(c => c.line === li && c.utext != null);
   if (!cuts.length) return null;
   const S = JSON.parse(JSON.stringify(cuts.map(c => ({ utext: c.utext, layout: c.layout, enter: c.enter, exit: c.exit, hold: c.hold, inDur: c.inDur, outDur: c.outDur,
-    params: c.params, decor: c.decor, treat: c.treat, treatP: c.treatP, bg: c.bg, bgP: c.bgP, cam: c.cam, camP: c.camP, scheme: c.scheme, seed: c.seed,
+    ballad: c.ballad, stagger: c.stagger, params: c.params, decor: c.decor, treat: c.treat, treatP: c.treatP, bg: c.bg, bgP: c.bgP, cam: c.cam, camP: c.camP, scheme: c.scheme, seed: c.seed,
     trans: c.trans, transP: c.transP, transDur: c.transDur, morph: c.morph || null, weightGrow: !!c.weightGrow, kime: !!c.kime, recap: !!c.recap, twinParams: c.companion ? c.companion.params : null, events: [] }))));
   // each accent belongs to the cut it plays in (the ones just before a cut start belong to that cut)
   for (const e of plan.events) {
